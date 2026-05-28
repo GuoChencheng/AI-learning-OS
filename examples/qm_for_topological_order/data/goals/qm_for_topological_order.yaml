@@ -1,0 +1,13 @@
+id: qm_for_topological_order
+title: QM for topological order
+main_goal: Build enough quantum mechanics language to read introductory topological order papers.
+stage_goal: Stabilize density matrices, perturbation theory, and effective Hamiltonian language.
+transfer_goal: Use these ideas while reading condensed matter papers.
+external_goal: Research reading preparation.
+active: true
+priority_topics:
+- density_matrix
+- perturbation_theory
+- effective_hamiltonian
+created_at: '2026-05-27T00:00:00Z'
+updated_at: '2026-05-27T00:00:00Z'

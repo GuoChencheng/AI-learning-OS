@@ -1,0 +1,14 @@
+id: claim_perturbation_effective
+goal_id: qm_for_topological_order
+text: Perturbation theory can be seen as a low-order expansion of effective theory.
+context: Learner-generated comparison while reading about effective Hamiltonians.
+type: interpretation
+status: unverified
+epistemic_status: inference
+strict_part: ''
+caveat: Effective theory and perturbation theory are related but not identical.
+counterexample_or_boundary: Strong-coupling or non-perturbative regimes may break the analogy.
+next_action: Verify the strict part and boundary cases before relying on this statement.
+record_intensity: medium
+created_at: '2026-05-27T00:00:00Z'
+updated_at: '2026-05-27T00:00:00Z'

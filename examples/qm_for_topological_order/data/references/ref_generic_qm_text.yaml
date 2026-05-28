@@ -1,0 +1,15 @@
+id: ref_generic_qm_text
+goal_id: qm_for_topological_order
+title: Generic Quantum Mechanics Textbook
+authors_or_source: Example source
+reference_type: textbook
+path_or_url: https://example.com/qm-textbook
+topics:
+- density_matrix
+- perturbation_theory
+relevance_to_goal: Durable source entry for checking derivations and notation.
+usage_stage: core_learning
+reading_status: skimmed
+notes: Public-safe placeholder reference; replace with a real local source in private projects.
+created_at: '2026-05-27T00:00:00Z'
+updated_at: '2026-05-27T00:00:00Z'

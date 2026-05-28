@@ -1,0 +1,10 @@
+id: goal_example
+title: Example learning goal
+main_goal: What disciplinary capability are you building?
+stage_goal: What should improve next?
+transfer_goal: Where should this knowledge transfer?
+external_goal: What outside deadline or use matters?
+active: true
+priority_topics: []
+created_at:
+updated_at:

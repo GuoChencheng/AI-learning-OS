@@ -1,0 +1,844 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-ink: 8 8 8;
+    --color-muted: 72 72 72;
+    --color-subtle: 116 116 116;
+    --color-paper: 255 255 255;
+    --color-panel: 255 255 255;
+    --color-line: 218 218 218;
+    --color-accent: 8 8 8;
+
+    --color-state-verified: 24 122 73;
+    --color-state-open-loop: 141 90 20;
+    --color-state-trust-gap: 164 79 20;
+    --color-state-overdue: 181 38 28;
+    --state-verified: var(--color-state-verified);
+    --state-open-loop: var(--color-state-open-loop);
+    --state-trust-gap: var(--color-state-trust-gap);
+    --state-overdue: var(--color-state-overdue);
+
+    --font-sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    --font-display: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, monospace;
+
+    --type-header-size: 1.5rem;
+    --type-header-line: 1.16;
+    --type-header-weight: 650;
+    --type-body-size: 0.9375rem;
+    --type-body-line: 1.55;
+    --type-body-weight: 400;
+    --type-meta-size: 0.75rem;
+    --type-meta-line: 1.35;
+    --type-meta-weight: 560;
+
+    --layout-gutter: clamp(1rem, 3vw, 2.5rem);
+    --layout-rail: 240px;
+    --layout-section-gap: clamp(2rem, 5vw, 4.5rem);
+    --layout-grid-gap: 1rem;
+    --layout-field-gap: 0.625rem;
+    --layout-page-max: 1480px;
+    --layout-readable-max: 72ch;
+    --layout-data-max: 1180px;
+    --grid-app: minmax(220px, var(--layout-rail)) minmax(0, 1fr);
+    --grid-cockpit: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    --grid-dashboard-state: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: rgb(var(--color-paper));
+    color: rgb(var(--color-ink));
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "kern";
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: rgb(var(--color-paper));
+    color: rgb(var(--color-ink));
+    font-family: var(--font-sans);
+    font-size: var(--type-body-size);
+    font-weight: var(--type-body-weight);
+    line-height: var(--type-body-line);
+    letter-spacing: 0;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    letter-spacing: 0;
+  }
+
+  button,
+  summary,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: rgb(var(--color-ink));
+    color: rgb(var(--color-paper));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-accent));
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .type-header {
+    font-family: var(--font-display);
+    font-size: var(--type-header-size);
+    font-weight: var(--type-header-weight);
+    line-height: var(--type-header-line);
+    letter-spacing: 0;
+  }
+
+  .type-body {
+    font-family: var(--font-sans);
+    font-size: var(--type-body-size);
+    font-weight: var(--type-body-weight);
+    line-height: var(--type-body-line);
+    letter-spacing: 0;
+  }
+
+  .type-meta {
+    color: rgb(var(--color-muted));
+    font-size: var(--type-meta-size);
+    font-weight: var(--type-meta-weight);
+    line-height: var(--type-meta-line);
+    letter-spacing: 0;
+  }
+
+  .layout-page {
+    width: min(100% - (var(--layout-gutter) * 2), var(--layout-page-max));
+    margin-inline: auto;
+  }
+
+  .layout-readable {
+    max-width: var(--layout-readable-max);
+  }
+
+  .layout-section {
+    padding-block: var(--layout-section-gap);
+  }
+
+  .grid-strict {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--layout-grid-gap);
+    align-items: start;
+  }
+
+  .grid-strict > * {
+    min-width: 0;
+  }
+
+  .hairline-top {
+    border-top: 1px solid rgb(var(--color-line));
+  }
+
+  .metadata {
+    color: rgb(var(--color-muted));
+    font-size: var(--type-meta-size);
+    font-weight: var(--type-meta-weight);
+    line-height: var(--type-meta-line);
+  }
+}
+
+@layer components {
+  button {
+    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-sm border border-ink bg-ink px-3 py-1.5 text-meta font-medium text-white shadow-none transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  button:hover:not(:disabled) {
+    @apply bg-white text-ink;
+  }
+
+  button.secondary,
+  .icon-button {
+    @apply border-line bg-white text-ink shadow-none;
+  }
+
+  button.secondary:hover:not(:disabled),
+  .icon-button:hover:not(:disabled) {
+    @apply border-ink bg-white;
+  }
+
+  .icon-button {
+    @apply min-w-9 px-2;
+  }
+
+  .app-shell {
+    @apply grid min-h-screen grid-cols-app bg-paper;
+  }
+
+  .sidebar {
+    @apply sticky top-0 flex h-screen flex-col border-r border-line bg-panel px-4 py-5;
+  }
+
+  .brand {
+    @apply mb-6 flex items-center gap-2 px-1 font-display text-h2 text-ink no-underline;
+  }
+
+  .sidebar nav {
+    @apply flex flex-col gap-1;
+  }
+
+  .sidebar nav a {
+    @apply flex items-center gap-2 border-l-2 border-transparent px-2 py-2 text-caption text-muted no-underline transition-colors hover:text-ink;
+  }
+
+  .sidebar nav a.active {
+    @apply border-ink bg-transparent text-ink;
+  }
+
+  .sidebar-footer {
+    @apply mt-auto border-t border-line pt-4;
+  }
+
+  .side-note {
+    @apply m-0 mb-4 text-meta text-muted;
+  }
+
+  .sidebar-control {
+    @apply mb-4 grid gap-2;
+  }
+
+  .sidebar-control > span,
+  .card-kicker,
+  .field span,
+  .record-card dt,
+  .summary-list dt,
+  .goal-summary dt,
+  .goal-stack span,
+  .checklist h3,
+  th {
+    @apply text-meta font-semibold uppercase text-muted;
+  }
+
+  .quiet-toggle {
+    @apply grid grid-cols-2 border border-line bg-white p-0.5;
+  }
+
+  .quiet-toggle button {
+    @apply min-h-8 justify-center border-0 bg-transparent px-2 py-1 text-meta text-muted shadow-none;
+  }
+
+  .quiet-toggle button.active {
+    @apply bg-ink text-white;
+  }
+
+  .sidebar-settings {
+    @apply block px-1 py-1.5 text-meta font-medium text-muted no-underline hover:text-ink;
+  }
+
+  main {
+    @apply min-w-0;
+  }
+
+  .page {
+    @apply mx-auto max-w-page px-gutter py-6;
+  }
+
+  .page-header {
+    @apply mb-6 max-w-readable;
+  }
+
+  .page-header h1 {
+    @apply m-0 font-display text-h1 text-ink;
+  }
+
+  .page-header p {
+    @apply mt-2 text-body text-muted;
+  }
+
+  .content-grid.two {
+    @apply grid grid-cols-2 gap-grid-gap;
+  }
+
+  .stats-grid {
+    @apply my-6 grid grid-cols-4 gap-grid-gap;
+  }
+
+  .panel,
+  .prompt-panel,
+  .task-card {
+    @apply border-t border-line bg-panel p-4 shadow-none;
+  }
+
+  .panel.compact,
+  .learning-section {
+    @apply p-3;
+  }
+
+  .panel h2,
+  .prompt-panel h3,
+  .task-card h3,
+  .section-heading,
+  .section-summary h2 {
+    @apply m-0 mb-3 font-display text-h2 text-ink;
+  }
+
+  .panel-title-row {
+    @apply mb-4 flex flex-wrap items-start justify-between gap-3;
+  }
+
+  .definition-list dt {
+    @apply mb-2 text-h2;
+  }
+
+  .definition-list dd {
+    @apply m-0 mb-3 text-body text-muted;
+  }
+
+  .stat {
+    @apply border-t border-line bg-white p-4;
+  }
+
+  .stat span {
+    @apply block text-meta uppercase text-muted;
+  }
+
+  .stat strong {
+    @apply mt-1 block font-display text-display text-ink;
+  }
+
+  .action-list,
+  .mini-list {
+    @apply m-0 list-none space-y-2 p-0 text-caption text-ink;
+  }
+
+  .action-list li,
+  .mini-list li {
+    @apply border-l-2 border-open-loop pl-3;
+  }
+
+  .cockpit-grid,
+  .dashboard-primary-row {
+    @apply mb-4 grid grid-cols-cockpit gap-grid-gap;
+  }
+
+  .cockpit-grid.two {
+    @apply grid-cols-2;
+  }
+
+  .cockpit-grid.three {
+    @apply grid-cols-3;
+  }
+
+  .cockpit-card {
+    @apply min-h-0;
+  }
+
+  .dashboard-state-grid {
+    @apply grid grid-cols-dashboard-state gap-grid-gap;
+  }
+
+  .dashboard-advanced-drawer,
+  .dashboard-prompt-dock {
+    @apply mt-4;
+  }
+
+  .dashboard-advanced-drawer > summary,
+  .advanced-details summary,
+  .add-learning-panel > summary,
+  .inline-details summary,
+  .ai-response-panel summary {
+    @apply cursor-pointer text-caption font-semibold text-muted hover:text-ink;
+  }
+
+  .dashboard-advanced-grid {
+    @apply mt-4 grid grid-cols-[1.4fr_0.6fr] gap-grid-gap;
+  }
+
+  .card-kicker {
+    @apply mb-3;
+  }
+
+  .goal-card h2,
+  .next-action-card h2,
+  .claim-card h2,
+  .reference-card h2,
+  .goal-summary h2 {
+    @apply mb-3 font-display text-h2 text-ink;
+  }
+
+  .goal-main {
+    @apply mb-4 text-body text-ink;
+  }
+
+  .goal-stack,
+  .goal-summary dl,
+  .summary-list {
+    @apply m-0 grid gap-2;
+  }
+
+  .goal-stack div,
+  .summary-list div,
+  .goal-summary dl div {
+    @apply border-t border-line bg-white py-2;
+  }
+
+  .goal-stack div,
+  .summary-list dd,
+  .goal-summary dd {
+    @apply text-caption text-ink;
+  }
+
+  .goal-summary p,
+  .claim-card p,
+  .reference-card p,
+  .trust-card p,
+  .test-card p,
+  .task-card p,
+  .task-card small,
+  .sub-card p {
+    @apply mt-0 text-caption text-muted;
+  }
+
+  .summary-list dd,
+  .goal-summary dd {
+    @apply m-0 mt-1;
+  }
+
+  .action-card {
+    @apply border-t border-line bg-white py-3;
+  }
+
+  .primary-action {
+    @apply border-ink;
+  }
+
+  .action-card h3 {
+    @apply mb-1 mt-2 font-display text-h2;
+  }
+
+  .action-card p {
+    @apply my-2 text-caption text-muted;
+  }
+
+  .action-card small {
+    @apply mb-3 block break-all text-meta text-muted;
+  }
+
+  .action-head,
+  .badge-row,
+  .button-row,
+  .prompt-actions,
+  .provider-run-row {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .secondary-actions {
+    @apply mt-4 grid gap-2;
+  }
+
+  .dashboard-mini-item,
+  .learning-item,
+  .reference-row,
+  .list-card {
+    @apply flex items-start justify-between gap-3 border-t border-line bg-white py-3;
+  }
+
+  .dashboard-mini-item strong,
+  .learning-item strong,
+  .reference-row strong {
+    @apply block text-caption font-semibold text-ink;
+  }
+
+  .dashboard-mini-item p,
+  .learning-item p {
+    @apply mb-0 mt-2 line-clamp-3 text-meta text-muted;
+  }
+
+  .dashboard-mini-item button {
+    @apply shrink-0 px-2 py-1 text-meta;
+  }
+
+  .learning-item details,
+  .reference-row span,
+  .timeline-list small,
+  .table-hint,
+  .prompt-purpose,
+  .prompt-related,
+  .quiet-details {
+    @apply text-meta text-muted;
+  }
+
+  .loop-list,
+  .item-list,
+  .card-stack,
+  .reference-stack,
+  .learning-sections,
+  .claim-grid,
+  .review-list,
+  .goal-list {
+    @apply grid gap-3;
+  }
+
+  .loop-row {
+    @apply flex items-center justify-between border-t border-line bg-white py-2 text-caption;
+  }
+
+  .loop-row strong {
+    @apply font-display text-h2;
+  }
+
+  .inline-details,
+  .method-result,
+  .ai-response-panel {
+    @apply w-full border-t border-line bg-white py-3 text-caption;
+  }
+
+  .learning-item pre,
+  .debug-box,
+  .prompt-panel pre,
+  .markdown-body pre {
+    @apply max-h-[420px] overflow-auto whitespace-pre-wrap border border-line bg-white p-3 font-mono text-meta leading-5;
+  }
+
+  .section-summary {
+    @apply mb-3 flex cursor-pointer items-center justify-between gap-2;
+  }
+
+  .claim-grid,
+  .reference-grid,
+  .provider-grid {
+    @apply grid gap-grid-gap;
+  }
+
+  .provider-grid {
+    @apply grid-cols-2;
+  }
+
+  .reference-card code,
+  .provider-card code,
+  .sub-card code,
+  .markdown-body code {
+    @apply my-2 block break-all bg-white font-mono text-meta text-ink;
+  }
+
+  .timeline-list {
+    @apply m-0 grid list-none gap-2 p-0;
+  }
+
+  .timeline-list li {
+    @apply grid gap-1 border-t border-line bg-white py-3 text-caption text-ink;
+  }
+
+  .review-button {
+    @apply justify-start border-line bg-white text-left text-ink shadow-none;
+  }
+
+  .review-button.active {
+    @apply border-ink bg-ink text-white;
+  }
+
+  .review-markdown,
+  .reference-view,
+  .task-card {
+    @apply mt-4;
+  }
+
+  .review-hero {
+    @apply grid grid-cols-[1fr_0.9fr] gap-grid-gap;
+  }
+
+  .empty-panel {
+    @apply text-caption text-muted;
+  }
+
+  .advanced-details {
+    @apply mt-5;
+  }
+
+  .checklist,
+  .suggestion-list,
+  .sub-card {
+    @apply border-t border-line bg-white py-3;
+  }
+
+  .checklist ul {
+    @apply m-0 grid list-none gap-1 p-0 text-caption;
+  }
+
+  .checklist li {
+    @apply flex items-start gap-2;
+  }
+
+  .warn-icon {
+    @apply text-trust-gap;
+  }
+
+  .rich-ladder {
+    @apply text-meta font-medium;
+  }
+
+  .utility-strip {
+    @apply mb-5 flex items-center justify-between gap-3 border-t border-line pt-3;
+  }
+
+  .utility-strip p {
+    @apply m-0 text-caption text-muted;
+  }
+
+  .privacy-warning {
+    @apply my-3 border-l-2 border-open-loop bg-white pl-3 text-meta text-muted;
+  }
+
+  .provider-run-row {
+    @apply mb-2 items-center;
+  }
+
+  .provider-run-row.compact {
+    @apply mb-2;
+  }
+
+  .provider-run-row select,
+  .field input,
+  .field textarea,
+  .field select {
+    @apply border-0 border-b border-line bg-white px-0 py-2 text-caption text-ink outline-none focus:border-ink;
+  }
+
+  .field {
+    @apply flex flex-col gap-2 text-caption;
+  }
+
+  .field textarea {
+    @apply min-h-24;
+  }
+
+  .form-panel,
+  .inline-form {
+    @apply grid gap-3;
+  }
+
+  .inline-form {
+    @apply my-4;
+  }
+
+  .inline-form .field textarea {
+    @apply min-h-20;
+  }
+
+  .add-learning-panel {
+    @apply mb-5;
+  }
+
+  .segmented-row {
+    @apply my-4 flex flex-wrap gap-2;
+  }
+
+  .method-router-grid {
+    @apply my-4 grid grid-cols-2 gap-grid-gap;
+  }
+
+  .more-actions {
+    @apply text-caption;
+  }
+
+  .more-actions summary,
+  .quiet-details summary {
+    @apply cursor-pointer border-b border-line px-0 py-1 text-meta font-medium text-ink;
+  }
+
+  .more-actions[open] {
+    @apply grid gap-2 border-t border-line bg-white py-2;
+  }
+
+  .save-message {
+    @apply my-4 border-l-2 border-verified bg-white pl-3 text-caption text-verified;
+  }
+
+  .prompt-empty {
+    @apply flex items-center gap-2 border border-dashed border-line bg-white px-3 py-2 text-caption text-muted;
+  }
+
+  .mode-pill,
+  .badge {
+    @apply inline-flex whitespace-nowrap rounded-sm border px-2 py-0.5 text-meta font-medium;
+  }
+
+  .mode-pill.api,
+  .badge-good {
+    @apply border-verified/20 bg-verified/5 text-verified;
+  }
+
+  .mode-pill.prompt,
+  .badge-neutral {
+    @apply border-line bg-white text-muted;
+  }
+
+  .badge-danger {
+    @apply border-overdue/20 bg-overdue/5 text-overdue;
+  }
+
+  .badge-warn {
+    @apply border-trust-gap/20 bg-trust-gap/5 text-trust-gap;
+  }
+
+  .badge-info {
+    @apply border-open-loop/20 bg-open-loop/5 text-open-loop;
+  }
+
+  .badge-strong {
+    @apply border-ink bg-ink text-white;
+  }
+
+  .context-preview {
+    @apply mb-3 grid grid-cols-2 gap-2 border-t border-line bg-white pt-3 text-meta;
+  }
+
+  .context-preview div {
+    @apply grid grid-cols-[110px_1fr] gap-2;
+  }
+
+  .context-preview dt {
+    @apply font-semibold text-muted;
+  }
+
+  .context-preview dd {
+    @apply m-0 break-all text-ink;
+  }
+
+  .text-link {
+    @apply text-caption font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink;
+  }
+
+  .markdown-body {
+    @apply max-w-readable text-body text-ink;
+  }
+
+  .markdown-body h1 {
+    @apply font-display text-h1;
+  }
+
+  .markdown-body h2 {
+    @apply mt-6 font-display text-h2;
+  }
+
+  .markdown-body table {
+    @apply my-4;
+  }
+
+  .reference-view {
+    @apply grid grid-cols-2 gap-grid-gap;
+  }
+
+  .pdf-embed {
+    @apply mt-4 h-72 w-full border border-line;
+  }
+
+  .ladder {
+    @apply mb-5 grid grid-cols-5 overflow-hidden border border-line bg-white text-center text-caption font-semibold;
+  }
+
+  .ladder span {
+    @apply border-r border-line px-3 py-2 last:border-r-0;
+  }
+
+  .record-card {
+    @apply grid gap-2;
+  }
+
+  .record-card div {
+    @apply border-t border-line bg-white py-2;
+  }
+
+  .record-card dd {
+    @apply m-0 mt-1 text-caption;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  table {
+    @apply w-full border-collapse text-left text-caption;
+  }
+
+  th {
+    @apply border-b border-line bg-white px-3 py-2;
+  }
+
+  td {
+    @apply max-w-[360px] border-b border-line px-3 py-2 align-top leading-5;
+  }
+
+  tr {
+    @apply hover:bg-line/20;
+  }
+
+  .selectable-row {
+    @apply cursor-pointer;
+  }
+
+  .selected-row {
+    @apply bg-line/20 outline outline-1 outline-ink;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --layout-gutter: 0.875rem;
+  }
+
+  .app-shell {
+    @apply block;
+  }
+
+  .sidebar {
+    @apply static h-auto border-b border-r-0;
+  }
+
+  .sidebar nav {
+    @apply grid grid-cols-2;
+  }
+
+  .content-grid.two,
+  .stats-grid,
+  .reference-view,
+  .cockpit-grid,
+  .cockpit-grid.two,
+  .cockpit-grid.three,
+  .dashboard-primary-row,
+  .dashboard-state-grid,
+  .dashboard-advanced-grid,
+  .method-router-grid,
+  .review-hero,
+  .context-preview,
+  .reference-grid,
+  .provider-grid {
+    @apply grid-cols-1;
+  }
+
+  .learning-item,
+  .reference-row,
+  .dashboard-mini-item,
+  .list-card {
+    @apply block;
+  }
+}

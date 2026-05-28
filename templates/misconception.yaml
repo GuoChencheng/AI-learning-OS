@@ -1,0 +1,22 @@
+id: misconception_example
+goal_id: goal_example
+statement: A learner's wrong statement.
+why_wrong: Why this statement fails.
+corrected_view: Short corrected view.
+related_topics: []
+severity: important
+status: active
+first_seen_at:
+last_seen_at:
+corrected_at:
+recurrence_count: 0
+related_claim_ids: []
+related_distinction_ids: []
+related_session_ids: []
+created_at:
+updated_at:
+last_touched_at:
+last_reviewed_at:
+last_tested_at:
+next_review_at:
+next_action: ""

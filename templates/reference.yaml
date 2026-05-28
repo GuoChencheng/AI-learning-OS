@@ -1,0 +1,13 @@
+id: reference_example
+goal_id: goal_example
+title: Durable source title
+authors_or_source: Author or source
+reference_type: textbook
+path_or_url: path/or/url
+topics: []
+relevance_to_goal: Why this source matters for the current goal.
+usage_stage: initial_map
+reading_status: unread
+notes: ""
+created_at:
+updated_at:

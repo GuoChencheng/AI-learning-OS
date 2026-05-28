@@ -1,0 +1,16 @@
+id: der_nondegenerate_perturbation
+goal_id: qm_for_topological_order
+topic: nondegenerate_perturbation_theory
+importance: core_tool
+status: needs_rederive
+result_to_trust: First- and second-order energy corrections from the eigenvalue equation.
+user_derived_steps:
+- Set up the eigenvalue and eigenvector expansions.
+ai_hinted_steps:
+- Projection onto the unperturbed eigenbasis.
+not_yet_trusted:
+- Second-order denominator structure.
+next_action: Reconstruct the second-order correction without hints.
+record_intensity: heavy
+created_at: '2026-05-27T00:00:00Z'
+updated_at: '2026-05-27T00:00:00Z'

@@ -1,0 +1,13 @@
+id: derivation_example
+goal_id: goal_example
+topic: nondegenerate_perturbation_theory
+importance: core_tool
+status: not_started
+result_to_trust: Result or formula to reconstruct.
+user_derived_steps: []
+ai_hinted_steps: []
+not_yet_trusted: []
+next_action: Start from definitions.
+record_intensity: light
+created_at:
+updated_at:

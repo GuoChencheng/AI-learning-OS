@@ -1,0 +1,15 @@
+id: visual_example
+goal_id: goal_example
+topic: density_matrix
+title: Durable visual metadata entry
+visual_type: reliable_web_image
+source_priority: reliable_web
+source_url_or_path: ""
+source_detail: ""
+reliability: medium
+usage: explanation
+why_needed: Why this visual helps the learner's current state.
+related_record_ids: []
+copyright_note: Store metadata and usage purpose, not large media by default.
+created_at:
+updated_at:

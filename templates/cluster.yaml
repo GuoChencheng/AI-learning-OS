@@ -1,0 +1,18 @@
+id: cluster_example
+goal_id: goal_example
+title: Concepts that should be learned together
+core_question: Why are these concepts grouped for this learner?
+concepts: []
+current_status: provisional
+reason: Learning-state grouping only, not a knowledge graph.
+related_distinction_ids: []
+related_position_ids: []
+related_session_ids: []
+created_at:
+updated_at:
+first_seen_at:
+last_touched_at:
+last_reviewed_at:
+last_tested_at:
+next_review_at:
+next_action: ""

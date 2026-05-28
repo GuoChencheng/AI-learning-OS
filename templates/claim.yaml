@@ -1,0 +1,14 @@
+id: claim_example
+goal_id: goal_example
+text: Student-generated claim.
+context: Where this claim came from.
+type: hypothesis
+status: unverified
+epistemic_status: speculation
+strict_part: ""
+caveat: ""
+counterexample_or_boundary: ""
+next_action: Verify with AI or source.
+record_intensity: light
+created_at:
+updated_at:

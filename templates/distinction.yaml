@@ -1,0 +1,31 @@
+id: distinction_example
+goal_id: goal_example
+title: superposition vs entanglement
+concepts:
+- superposition_state
+- entangled_state
+confusion_statement: Learner-specific confusion to distinguish.
+shared_features: []
+distinguishing_criteria: []
+minimal_examples: []
+boundary_cases: []
+common_misconceptions: []
+status: needs_distinction
+internalization_target: none
+record_intensity: light
+first_confused_at:
+last_confused_at:
+last_distinguished_at:
+next_distinction_test_at:
+confusion_count: 0
+related_claim_ids: []
+related_test_ids: []
+related_session_ids: []
+created_at:
+updated_at:
+first_seen_at:
+last_touched_at:
+last_reviewed_at:
+last_tested_at:
+next_review_at:
+next_action: ""

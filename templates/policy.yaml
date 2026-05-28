@@ -1,0 +1,16 @@
+id: policy_example
+goal_id: goal_example
+title: Example classification policy
+description: A/B/C is a dynamic classification grammar for this goal, not a fixed map.
+a_zone_criteria: []
+b_zone_criteria: []
+c_zone_criteria: []
+core_tool_criteria: []
+non_core_tool_criteria: []
+test_mode_criteria: []
+upgrade_triggers: []
+downgrade_triggers: []
+revisit_triggers: []
+examples_optional: []
+created_at:
+updated_at:

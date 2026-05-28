@@ -1,0 +1,16 @@
+id: pos_density_matrix
+goal_id: qm_for_topological_order
+policy_id:
+knowledge_point: density_matrix
+position: A_no_ai_internalization
+tool_role: core_tool
+reason: The learner expects density matrices to appear repeatedly in paper reading.
+confidence: medium
+epistemic_status: learning_strategy
+revisit_when:
+- before entanglement entropy
+record_strength: heavy
+record_intensity: heavy
+internalization_level: A0
+created_at: '2026-05-27T00:00:00Z'
+updated_at: '2026-05-27T00:00:00Z'

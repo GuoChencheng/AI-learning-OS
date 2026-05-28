@@ -1,0 +1,14 @@
+id: position_example
+goal_id: goal_example
+knowledge_point: density_matrix
+position: B_knowledge_positioning
+tool_role: core_tool
+reason: Why this depth is enough for the current goal.
+confidence: medium
+epistemic_status: learning_strategy
+revisit_when: []
+record_strength: light
+record_intensity: light
+internalization_level: none
+created_at:
+updated_at:
