@@ -232,6 +232,20 @@ button:disabled {
 .state-hint {
   border-left: 2px solid var(--accent);
   padding-left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.link-control {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .error-strip {
@@ -368,6 +382,7 @@ button:disabled {
 }
 
 .inline-form input,
+.field-row input,
 .field-row select,
 .reference-box input,
 .reference-box textarea {
@@ -418,6 +433,49 @@ button:disabled {
   gap: 6px;
 }
 
+.toggle-row {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+}
+
+.toggle-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.toggle-row input {
+  width: 16px;
+  height: 16px;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.module-grid label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .field-row span,
 .state-group h3,
 .reference-box h3 {
@@ -451,6 +509,17 @@ button:disabled {
   margin: 5px 0;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.state-group li span {
+  display: block;
+}
+
+.state-group li small {
+  display: block;
+  margin-top: 2px;
+  color: var(--subtle);
+  font-size: 12px;
 }
 
 .reference-box {
