@@ -172,6 +172,7 @@ export interface StateUpdates {
   knowledge_positions?: RecordItem[];
   derivation_trust_records?: RecordItem[];
   assessments?: Record<string, unknown>;
+  user_originated_updates?: Record<string, unknown>;
   log_id?: string;
 }
 
@@ -253,12 +254,14 @@ export interface LearningUnit {
   project_id: string;
   status: "active" | "closed" | "abandoned";
   method: string;
+  mode?: string;
   topic: string;
   start_message_id?: string | null;
   last_message_id?: string | null;
   context_snapshot_json: Record<string, unknown>;
   unit_summary: string;
   turn_count: number;
+  context_status?: LearningUnitContextStatus;
   close_reason?: string | null;
   created_at: string;
   updated_at: string;

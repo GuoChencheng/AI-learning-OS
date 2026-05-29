@@ -283,14 +283,52 @@ AI Learn OS 的目标产品栈：
 
 ## 快速开始
 
-### 1. 安装后端
+### 1. 安装后端依赖
 
 ```bash
 python3 -m venv .venv
+.venv/bin/python -m pip install ".[dev]"
+```
+
+确认 `learn` 命令可用：
+
+```bash
+.venv/bin/learn --help
+```
+
+如果你正在做源码开发，可以使用 editable install：
+
+```bash
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-### 2. 启动数据库服务
+若本地 Python/venv 没有正确处理 editable `.pth`，直接用源码路径启动：
+
+```bash
+PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev
+```
+
+### 2. 配置模型 Provider
+
+没有 API key 时，系统会走 `FakeModelGateway` / deterministic fallback，适合本地测试和 CI。
+
+要启用真实 OpenAI-compatible provider，在本地 shell 或 `.env` 中配置：
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+export AI_LEARN_FAST_MODEL="gpt-4o-mini"
+export AI_LEARN_MEDIUM_MODEL="gpt-4.1-mini"
+export AI_LEARN_STRONG_MODEL="gpt-4.1"
+```
+
+不要提交 `.env` 或任何真实密钥。可用下面的诊断脚本确认当前路径：
+
+```bash
+.venv/bin/python scripts/check_ai_path.py
+```
+
+### 3. 启动数据库服务
 
 ```bash
 docker compose up -d postgres redis
@@ -302,19 +340,29 @@ docker compose up -d postgres redis
 data/ai_learn_os.sqlite3
 ```
 
-### 3. 启动 API
+### 4. 启动 API + Web
 
 ```bash
 .venv/bin/learn ui --dev
 ```
 
-API 默认运行在：
+默认运行在：
 
 ```text
 http://127.0.0.1:8765
 ```
 
-### 4. 启动前端
+这个命令会用当前后端 API 服务已构建的 `web/dist`。首次运行前建议构建前端：
+
+```bash
+cd web
+npm install
+npm run build
+cd ..
+.venv/bin/learn ui --dev
+```
+
+### 5. 前端开发模式
 
 ```bash
 cd web
@@ -330,6 +378,50 @@ http://127.0.0.1:5173
 
 Vite 会将 `/api` 代理到 `127.0.0.1:8765`。
 
+如果浏览器提示 `Unknown endpoint` 或 `API returned an empty response`，通常是 8765 上还跑着旧后端进程。停止旧进程后重新运行：
+
+```bash
+.venv/bin/learn ui --dev
+```
+
+也可以用当前源码直接启动，避免旧安装包干扰：
+
+```bash
+PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev --port 8766
+```
+
+### 6. 创建 CFT Demo 项目
+
+Web 的 Projects 面板底部有 `Create Demo: CFT`，会调用：
+
+```text
+POST /api/projects/seed/cft
+```
+
+也可以用脚本创建：
+
+```bash
+.venv/bin/python scripts/seed_cft_learning.py
+```
+
+推荐第一轮验证问题：
+
+```text
+为什么 2D CFT 可以描述二阶临界点？
+```
+
+然后点击 `Run Next`，打开 Inspector 查看 `Current Blocker / Next Action / Evidence`。
+
+### 7. Alpha Pack Smoke Test
+
+不需要真实 API key：
+
+```bash
+.venv/bin/python scripts/smoke_alpha_pack.py
+```
+
+它会用临时 SQLite DB 验证数据库初始化、CFT seed、`/api/chat`、`/api/run-next`、`learning-summary` 与 Reference chunk 进入 ContextPack。
+
 ---
 
 ## API 一览
@@ -341,6 +433,7 @@ POST /api/chat
 POST /api/run-next
 GET  /api/projects
 POST /api/projects
+POST /api/projects/seed/cft
 GET  /api/projects/:id
 PATCH /api/projects/:id
 GET  /api/projects/:id/settings
@@ -348,10 +441,15 @@ PATCH /api/projects/:id/settings
 GET  /api/system-settings
 PATCH /api/system-settings
 GET  /api/projects/:id/state
+GET  /api/projects/:id/learning-summary
 POST /api/projects/:id/references
+POST /api/projects/:id/references/upload
 GET  /api/projects/:id/references
 POST /api/projects/:id/learning-units/:unit_id/close
 POST /api/projects/:id/learning-units/:unit_id/refresh-context
+POST /api/review-triggers/:id/complete
+POST /api/review-triggers/:id/fail
+POST /api/review-triggers/:id/skip
 POST /api/state-updates/:id/revert
 ```
 

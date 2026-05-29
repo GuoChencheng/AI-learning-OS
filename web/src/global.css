@@ -277,6 +277,7 @@ button:disabled {
   position: relative;
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   max-width: 100%;
   border-radius: 999px;
   padding: 3px 8px;
@@ -664,6 +665,32 @@ button:disabled {
   background: #eef2ff;
 }
 
+.demo-project-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 0;
+  border-radius: 22px;
+  padding: 14px 15px;
+  background: #111111;
+  color: #ffffff;
+  text-align: left;
+}
+
+.demo-project-button:hover {
+  background: #242428;
+}
+
+.demo-project-button span {
+  display: grid;
+  gap: 2px;
+}
+
+.demo-project-button small {
+  color: rgba(255, 255, 255, 0.62);
+}
+
 .project-card span {
   display: grid;
   gap: 3px;
@@ -824,17 +851,20 @@ button:disabled {
 }
 
 .memory-flash {
-  animation: memoryFlash 1.4s ease-out 1;
+  animation: memoryFlash 1.5s ease-out 1;
 }
 
 @keyframes memoryFlash {
   0% {
+    background-color: rgba(22, 163, 74, 0);
     box-shadow: 0 0 0 rgba(30, 150, 95, 0);
   }
   35% {
-    box-shadow: 0 0 24px rgba(30, 150, 95, 0.18);
+    background-color: rgba(22, 163, 74, 0.12);
+    box-shadow: 0 0 26px rgba(30, 150, 95, 0.18);
   }
   100% {
+    background-color: rgba(22, 163, 74, 0);
     box-shadow: 0 0 0 rgba(30, 150, 95, 0);
   }
 }
@@ -853,6 +883,7 @@ button:disabled {
 .state-group li,
 .reference-list li {
   margin: 5px 0;
+  border-radius: 12px;
   font-size: 13px;
   line-height: 1.45;
 }

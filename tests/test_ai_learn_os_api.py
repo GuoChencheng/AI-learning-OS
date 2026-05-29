@@ -68,6 +68,7 @@ def test_chat_endpoint_runs_full_pipeline_and_writes_selective_state(tmp_path: P
     assert data["state_updates"]["claims"]
     assert data["state_updates"]["distinctions"]
     assert data["state_updates"]["review_triggers"]
+    assert data["state_updates"]["user_originated_updates"]
 
     state = client.get(f"/api/projects/{project['id']}/state").json()
     assert len(state["temporal_traces"]) == 1

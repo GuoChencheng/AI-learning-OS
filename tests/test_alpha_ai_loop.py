@@ -409,3 +409,33 @@ def test_seeded_cft_run_next_smoke_with_active_unit(tmp_path: Path) -> None:
         "jump_to_global_priority",
         "create_new_unit",
     }
+
+
+def test_ai_path_check_script_reports_gateway_without_secret(monkeypatch) -> None:
+    from scripts.check_ai_path import describe_ai_path
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("AI_LEARN_FAST_MODEL", "fast-test")
+    monkeypatch.setenv("AI_LEARN_MEDIUM_MODEL", "medium-test")
+    monkeypatch.setenv("AI_LEARN_STRONG_MODEL", "strong-test")
+
+    info = describe_ai_path()
+
+    assert info["gateway_selected"] == "FakeModelGateway"
+    assert info["openai_api_key_configured"] == "no"
+    assert info["fast_model"] == "fast-test"
+    assert "test-key" not in json.dumps(info)
+
+
+def test_smoke_alpha_pack_script_runs_against_temp_db() -> None:
+    from scripts.smoke_alpha_pack import run_smoke
+
+    result = run_smoke()
+
+    assert result["ok"] is True
+    assert result["checks"]["database_initializes"] is True
+    assert result["checks"]["cft_seed_works"] is True
+    assert result["checks"]["chat_works"] is True
+    assert result["checks"]["run_next_works"] is True
+    assert result["checks"]["learning_summary_works"] is True
+    assert result["checks"]["reference_chunks_enter_context"] is True

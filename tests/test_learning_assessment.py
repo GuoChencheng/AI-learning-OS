@@ -331,6 +331,35 @@ def test_chat_assessment_tracks_repeated_cft_misconception_and_summary_endpoint(
     assert summary["primary_next_action"]["module"] == "flawed_interpretation_critic"
 
 
+def test_run_next_prioritizes_recurring_misconception_records(tmp_path: Path) -> None:
+    client, repo = make_client_and_repo(tmp_path)
+    project = client.post("/api/projects", json={"name": "RunNext Misconception"}).json()
+    MisconceptionTracker().record_or_update(
+        project["id"],
+        "CFT fusion 就是 anyon fusion",
+        [],
+        [],
+        "first collapse",
+        repo,
+    )
+    MisconceptionTracker().record_or_update(
+        project["id"],
+        "CFT fusion exactly equals anyon fusion",
+        [],
+        [],
+        "second collapse",
+        repo,
+    )
+
+    response = client.post("/api/run-next", json={"project_id": project["id"]})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["priority"] == "repeated_misconception"
+    assert data["chosen_module"] == "flawed_interpretation_critic"
+    assert "CFT fusion" in data["reason"] or "cft_fusion_equals_anyon_fusion" in data["reason"]
+
+
 def test_chat_no_ai_button_updates_knowledge_position_assessment(tmp_path: Path) -> None:
     client, repo = make_client_and_repo(tmp_path)
     project = client.post("/api/projects", json={"name": "No AI"}).json()

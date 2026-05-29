@@ -776,7 +776,7 @@ class Repository:
                 "created_at": now,
             },
         )
-        return {**created, "log_id": log["id"]}
+        return {**created, "log_id": log["id"], "user_originated_updates": output.get("user_originated_updates", {})}
 
     def revert_state_update(self, update_id: str) -> dict[str, Any]:
         log = self.get_by_id("state_update_logs", update_id)

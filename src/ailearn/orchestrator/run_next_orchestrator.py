@@ -124,7 +124,11 @@ class RunNextOrchestrator:
                     "close_state_update_log_id": close_distillation["state_updates"].get("log_id") if close_distillation else None,
                 },
             },
-            "state_updates": {"temporal_traces": state_updates["temporal_traces"], "log_id": state_updates["log_id"]},
+            "state_updates": {
+                "temporal_traces": state_updates["temporal_traces"],
+                "user_originated_updates": state_updates.get("user_originated_updates", {}),
+                "log_id": state_updates["log_id"],
+            },
             "decision": _decision_from_learning_unit_action(learning_unit_action),
             "model_path": "fallback",
             "priority": decision["priority"],
@@ -207,6 +211,24 @@ class RunNextOrchestrator:
                 "will_update": ["temporal_trace", "review_trigger_status"],
                 "answer": f"我建议先处理到期回看点：{target}。请先无提示复述边界，再用一个例子检验。",
                 "next_action": "完成这个回看点并记录是否通过。",
+            }
+        recurring_misconceptions = [
+            item for item in state.get("misconception_records", [])
+            if item.get("status") == "recurring" or int(item.get("recurrence_count") or 0) >= 2
+        ]
+        if recurring_misconceptions:
+            item = recurring_misconceptions[0]
+            statement = item.get("statement") or item.get("misconception_key") or "recurring misconception"
+            return {
+                "priority": "repeated_misconception",
+                "loop_step": "handle",
+                "chosen_module": "flawed_interpretation_critic",
+                "reason": f"Recurring misconception detected: {statement}.",
+                "why_this_now": "A recurring misconception is stronger blocker evidence than moving to new content.",
+                "expected_user_action": "State the wrong pattern, repair it, and turn it into a distinction test.",
+                "will_update": ["temporal_trace"],
+                "answer": f"先处理反复误区：{statement}。请把这个说法中“类比/关系”和“等同”分开，然后给一个反例。",
+                "next_action": item.get("next_action") or "把反复误区转成可测试的 Distinction。",
             }
         repeated = [claim for claim in state["claims"] if claim.get("status") == "revised"]
         if repeated:

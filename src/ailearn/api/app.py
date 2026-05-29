@@ -10,6 +10,7 @@ from ailearn.db.repository import Repository
 from ailearn.model_gateway.base import ModelGateway
 from ailearn.model_gateway.fake import FakeModelGateway
 from ailearn.model_gateway.factory import create_model_gateway_from_env
+from ailearn.learning_units.distiller import LearningUnitCloseDistiller
 from ailearn.orchestrator.chat_orchestrator import ChatOrchestrator
 from ailearn.orchestrator.run_next_orchestrator import RunNextOrchestrator
 from ailearn.references.chunking import chunk_text
@@ -87,7 +88,13 @@ class AILearnOSApp:
             if not unit or unit.get("project_id") != project_id:
                 raise KeyError(unit_id)
             if parts[5] == "close":
-                return 200, self.repository.close_learning_unit(unit_id, payload.get("reason", "user_closed"))
+                result = LearningUnitCloseDistiller(self.model_gateway).distill_and_close(
+                    project_id,
+                    unit_id,
+                    payload.get("reason", "user_closed"),
+                    self.repository,
+                )
+                return 200, result["unit"]
             if parts[5] == "refresh-context":
                 snapshot = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
                 return 200, self.repository.update_learning_unit(unit_id, {"context_snapshot_json": {**snapshot, "refresh_requested": True}})

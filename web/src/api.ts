@@ -101,7 +101,7 @@ export const api = {
 };
 
 export function extractMessageMetadata(response: ChatResponse | RunNextResponse): MessageMetadata {
-  const learningUnitTrace = getRecord(response.pipeline_trace.learning_unit);
+  const learningUnitTrace = getRecord(response.pipeline_trace?.learning_unit);
   return {
     modelPath: normalizeModelPath(response.model_path),
     activeLearningUnit: buildActiveLearningUnitView(response.active_learning_unit, learningUnitTrace),
@@ -110,7 +110,7 @@ export function extractMessageMetadata(response: ChatResponse | RunNextResponse)
 }
 
 export function extractRunNextDecision(response: RunNextResponse): RunNextDecisionState {
-  const learningUnitTrace = getRecord(response.pipeline_trace.learning_unit);
+  const learningUnitTrace = getRecord(response.pipeline_trace?.learning_unit);
   const decision = normalizeRunNextDecision(response.decision) || decisionFromLearningUnitAction(asString(learningUnitTrace.action));
   return {
     decision,
@@ -127,11 +127,11 @@ function buildActiveLearningUnitView(unit: LearningUnit | null | undefined, trac
   const action = asString(trace.action);
   return {
     id,
-    mode: unit?.method || asString(trace.method) || "auto",
+    mode: unit?.mode || unit?.method || asString(trace.method) || "auto",
     topic: unit?.topic || asString(trace.topic) || undefined,
     status: unit?.status,
     turnCount: Number(unit?.turn_count ?? trace.turn_count ?? 0),
-    contextStatus: contextStatusFromAction(action, Boolean(trace.should_run_full_context_extraction)),
+    contextStatus: unit?.context_status || contextStatusFromAction(action, Boolean(trace.should_run_full_context_extraction)),
     action: action || undefined,
     reason: asString(trace.reason) || undefined
   };
@@ -141,7 +141,7 @@ function extractReferenceChunks(response: ChatResponse | RunNextResponse): Refer
   const direct = normalizeReferenceChunks(response.reference_chunks);
   if (direct.length > 0) return direct;
 
-  const fromTrace = response.pipeline_trace.steps.flatMap((step) => {
+  const fromTrace = (response.pipeline_trace?.steps || []).flatMap((step) => {
     const output = getRecord(step.output);
     return normalizeReferenceChunks(output.relevant_reference_chunks);
   });
