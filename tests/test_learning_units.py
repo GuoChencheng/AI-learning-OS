@@ -122,7 +122,7 @@ def test_run_next_creates_or_continues_learning_unit(tmp_path: Path) -> None:
 
 
 def test_learning_unit_api_endpoints(tmp_path: Path) -> None:
-    client, _ = make_client_and_repo(tmp_path)
+    client, repo = make_client_and_repo(tmp_path)
     project = client.post("/api/projects", json={"name": "Physics"}).json()
     chat = client.post(
         "/api/chat",
@@ -150,3 +150,8 @@ def test_learning_unit_api_endpoints(tmp_path: Path) -> None:
     closed = client.post(f"/api/projects/{project['id']}/learning-units/{unit_id}/close").json()
     assert closed["status"] == "closed"
     assert closed["close_reason"] == "user_closed"
+    logs = repo.list_by_project("state_update_logs", project["id"], limit=20)
+    assert any(
+        "unit_close" in log["payload_json"].get("source_metadata", {}).get("evidence_text", "")
+        for log in logs
+    )

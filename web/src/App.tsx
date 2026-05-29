@@ -21,6 +21,7 @@ import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type {
   ButtonAction,
   ChatResponse,
+  RecordItem,
   LearningSummaryPayload,
   LearningStatePayload,
   MessageMetadata,
@@ -29,6 +30,7 @@ import type {
   ReferenceEntry,
   RunNextDecisionState,
   RunNextResponse,
+  StateUpdates,
   SystemSettings,
   TeachingMode
 } from "./types";
@@ -45,6 +47,12 @@ type ChatMessage = {
 };
 
 type DrawerTab = "projects" | "project-settings" | "system-settings" | "learning-state";
+
+type WritebackPulse = {
+  nonce: number;
+  ids: string[];
+  userOriginatedUpdates: Record<string, unknown>;
+};
 
 const actionButtons: Array<{ action: ButtonAction; mode: TeachingMode; label: string; icon: typeof Sparkles }> = [
   { action: "explain", mode: "explain", label: "解释", icon: Sparkles },
@@ -81,6 +89,8 @@ function App() {
   const [selectedMode, setSelectedMode] = useState<TeachingMode>("auto");
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [runDecision, setRunDecision] = useState<RunNextDecisionState | null>(null);
+  const [runNextBusy, setRunNextBusy] = useState(false);
+  const [writebackPulse, setWritebackPulse] = useState<WritebackPulse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -155,6 +165,7 @@ function App() {
         button_action: action
       });
       appendAssistant(response);
+      setWritebackPulse(buildWritebackPulse(response.state_updates));
       await refreshProjectSurfaces(currentProject.id);
       setActiveAction(null);
       setSelectedMode("auto");
@@ -168,16 +179,19 @@ function App() {
   async function runNext() {
     if (!currentProject || busy) return;
     setBusy(true);
+    setRunNextBusy(true);
     setError("");
     try {
       const response = await api.runNext(currentProject.id);
       setRunDecision(extractRunNextDecision(response));
       appendRunNext(response);
+      setWritebackPulse(buildWritebackPulse(response.state_updates));
       await refreshProjectSurfaces(currentProject.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Run next failed.");
     } finally {
       setBusy(false);
+      setRunNextBusy(false);
     }
   }
 
@@ -216,6 +230,23 @@ function App() {
     setProjects((items) => [created, ...items]);
     setCurrentProjectId(created.id);
     setNewProjectName("");
+  }
+
+  async function seedCftProject() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const seeded = await api.seedCftProject();
+      setProjects((items) => [seeded.project, ...items.filter((item) => item.id !== seeded.project.id)]);
+      setCurrentProjectId(seeded.project.id);
+      await refreshProjectSurfaces(seeded.project.id);
+      setDrawerTab("learning-state");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create CFT demo project.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function updateProjectSettings(patch: Partial<ProjectSettings>) {
@@ -328,6 +359,7 @@ function App() {
         <Composer
           value={input}
           busy={busy}
+          runNextBusy={runNextBusy}
           activeAction={activeAction}
           runDecision={runDecision}
           actionMenuOpen={actionMenuOpen}
@@ -353,12 +385,14 @@ function App() {
         systemSettings={systemSettings}
         learningState={learningState}
         learningSummary={learningSummary}
+        writebackPulse={writebackPulse}
         references={references}
         newProjectName={newProjectName}
         referenceTitle={referenceTitle}
         referenceText={referenceText}
         onNewProjectName={setNewProjectName}
         onCreateProject={createProject}
+        onSeedCftProject={seedCftProject}
         onSelectProject={setCurrentProjectId}
         onProject={updateProject}
         onProjectSettings={updateProjectSettings}
@@ -458,6 +492,7 @@ function Composer({
   runDecision,
   actionMenuOpen,
   busy,
+  runNextBusy,
   onChange,
   onSend,
   onRun,
@@ -469,6 +504,7 @@ function Composer({
   runDecision: RunNextDecisionState | null;
   actionMenuOpen: boolean;
   busy: boolean;
+  runNextBusy: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
   onRun: () => void;
@@ -476,7 +512,8 @@ function Composer({
   onSelectAction: (action: ButtonAction, mode: TeachingMode) => void;
 }) {
   const hasInput = Boolean(value.trim());
-  const heavyRunState = !hasInput && Boolean(runDecision && ["close", "create"].includes(runDecision.decision));
+  const heavyRunState = !hasInput && (runNextBusy || Boolean(runDecision && ["close", "create"].includes(runDecision.decision)));
+  const decisionText = runNextBusy ? "Selecting next action and distilling active memory..." : runDecision ? formatRunDecision(runDecision) : "";
   return (
     <footer className="composer-shell">
       <div className="mode-line">
@@ -525,7 +562,7 @@ function Composer({
           >
             {hasInput ? <Send size={18} /> : <><Sparkles size={16} /><span>Run Next</span></>}
           </button>
-          {!hasInput && runDecision && <span className="run-decision-chip">{formatRunDecision(runDecision)}</span>}
+          {!hasInput && decisionText && <span className="run-decision-chip">{decisionText}</span>}
         </div>
       </div>
     </footer>
@@ -541,13 +578,15 @@ function MessageMetadataChips({ metadata }: { metadata?: MessageMetadata }) {
     <div className="metadata-chips text-xs text-gray-400 opacity-70 hover:opacity-100">
       {metadata.activeLearningUnit && (
         <span className="metadata-chip" title={metadata.activeLearningUnit.reason || metadata.activeLearningUnit.topic || ""}>
+          <Brain size={11} />
           {formatModuleName(metadata.activeLearningUnit.mode)} · turn {metadata.activeLearningUnit.turnCount} · {formatContextStatus(metadata.activeLearningUnit.contextStatus)}
         </span>
       )}
-      {metadata.modelPath && <span className="metadata-chip">{formatModelPath(metadata.modelPath)}</span>}
+      {metadata.modelPath && <span className="metadata-chip"><Sparkles size={11} />{formatModelPath(metadata.modelPath)}</span>}
       {chunks.length > 0 && (
         <span className="metadata-chip reference-metadata-chip">
-          {chunks.length} reference{chunks.length > 1 ? "s" : ""} used
+          <BookOpen size={11} />
+          {chunks.length} Reference{chunks.length > 1 ? "s" : ""} Ranked
           <span className="reference-preview">
             {chunks.slice(0, 3).map((chunk, index) => (
               <span key={`${chunk.reference_id || chunk.title || "reference"}-${index}`}>
@@ -573,9 +612,9 @@ function extractEpistemicTag(content: string) {
 }
 
 function formatModelPath(path: NonNullable<MessageMetadata["modelPath"]>): string {
-  if (path === "strong") return "strong model";
-  if (path === "medium") return "medium model";
-  return "deterministic fallback";
+  if (path === "strong") return "Strong Tier";
+  if (path === "medium") return "Medium Tier";
+  return "Deterministic Fallback";
 }
 
 function formatModuleName(value: string): string {
@@ -630,12 +669,14 @@ function RightDrawer(props: {
   systemSettings: SystemSettings | null;
   learningState: LearningStatePayload | null;
   learningSummary: LearningSummaryPayload | null;
+  writebackPulse: WritebackPulse | null;
   references: ReferenceEntry[];
   newProjectName: string;
   referenceTitle: string;
   referenceText: string;
   onNewProjectName: (value: string) => void;
   onCreateProject: () => void;
+  onSeedCftProject: () => void;
   onSelectProject: (id: string) => void;
   onProject: (patch: Partial<Project>) => void;
   onProjectSettings: (patch: Partial<ProjectSettings>) => void;
@@ -685,6 +726,7 @@ function ProjectsTab(props: {
   newProjectName: string;
   onNewProjectName: (value: string) => void;
   onCreateProject: () => void;
+  onSeedCftProject: () => void;
   onSelectProject: (id: string) => void;
 }) {
   const latestTrace = props.learningState?.temporal_traces[0];
@@ -710,6 +752,13 @@ function ProjectsTab(props: {
           </button>
         ))}
       </div>
+      <button className="demo-project-button" onClick={props.onSeedCftProject}>
+        <Sparkles size={15} />
+        <span>
+          <strong>Create Demo: CFT</strong>
+          <small>Seed a focused CFT learning loop.</small>
+        </span>
+      </button>
     </section>
   );
 }
@@ -765,6 +814,7 @@ function SystemSettingsTab({ settings, onPatch }: { settings: SystemSettings | n
 function LearningStateTab(props: {
   learningState: LearningStatePayload | null;
   learningSummary: LearningSummaryPayload | null;
+  writebackPulse?: WritebackPulse | null;
   references: ReferenceEntry[];
   referenceTitle: string;
   referenceText: string;
@@ -774,19 +824,26 @@ function LearningStateTab(props: {
   onFile: (file: File) => void;
 }) {
   const state = props.learningState;
+  const [flashingIds, setFlashingIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!props.writebackPulse?.ids.length) return;
+    setFlashingIds(new Set(props.writebackPulse.ids));
+    const timer = window.setTimeout(() => setFlashingIds(new Set()), 1500);
+    return () => window.clearTimeout(timer);
+  }, [props.writebackPulse?.nonce]);
   if (!state) return <EmptyState text="Learning state is loading." />;
   const repeatedConfusions = state.claims.filter((claim) => claim.status === "revised" || claim.epistemic_status === "wrong").slice(0, 4);
   return (
     <section className="state-panel">
-      {props.learningSummary && <LearningSummaryCard summary={props.learningSummary} />}
-      <StateGroup title="当前 Goal" items={state.temporal_traces.slice(0, 1)} primary="next_step" secondary="created_at" fallback="No recent goal trace." />
-      <StateGroup title="核心 Claim" items={state.claims.slice(0, 4)} primary="normalized_statement" secondary="epistemic_status" fallback="No claims yet." />
-      <StateGroup title="关键 Distinction" items={state.distinctions.slice(0, 4)} primary="boundary" secondary="concept_a" fallback="No distinctions yet." />
-      <StateGroup title="反复误区" items={repeatedConfusions} primary="normalized_statement" secondary="status" fallback="No repeated confusion yet." />
-      <StateGroup title="无 AI 内化区" items={state.knowledge_positions.slice(0, 4)} primary="concept" secondary="current_level" fallback="No no-AI items yet." />
-      <StateGroup title="推导信任" items={state.derivation_trust_records.slice(0, 4)} primary="result_or_tool" secondary="no_ai_reconstruction_status" fallback="No derivation trust records yet." />
-      <StateGroup title="回看点" items={state.review_triggers.slice(0, 4)} primary="target" secondary="status" fallback="No review triggers yet." />
-      <StateGroup title="最近学习轨迹" items={state.temporal_traces.slice(0, 4)} primary="user_question" secondary="next_step" fallback="No learning trace yet." />
+      {props.learningSummary && <LearningSummaryCard summary={props.learningSummary} flashIds={flashingIds} />}
+      <StateGroup title="当前 Goal" items={state.temporal_traces.slice(0, 1)} primary="next_step" secondary="created_at" fallback="No recent goal trace." flashIds={flashingIds} />
+      <StateGroup title="核心 Claim" items={state.claims.slice(0, 4)} primary="normalized_statement" secondary="epistemic_status" fallback="No claims yet." flashIds={flashingIds} />
+      <StateGroup title="关键 Distinction" items={state.distinctions.slice(0, 4)} primary="boundary" secondary="concept_a" fallback="No distinctions yet." flashIds={flashingIds} />
+      <StateGroup title="反复误区" items={repeatedConfusions} primary="normalized_statement" secondary="status" fallback="No repeated confusion yet." flashIds={flashingIds} />
+      <StateGroup title="无 AI 内化区" items={state.knowledge_positions.slice(0, 4)} primary="concept" secondary="current_level" fallback="No no-AI items yet." flashIds={flashingIds} />
+      <StateGroup title="推导信任" items={state.derivation_trust_records.slice(0, 4)} primary="result_or_tool" secondary="no_ai_reconstruction_status" fallback="No derivation trust records yet." flashIds={flashingIds} />
+      <StateGroup title="回看点" items={state.review_triggers.slice(0, 4)} primary="target" secondary="status" fallback="No review triggers yet." flashIds={flashingIds} />
+      <StateGroup title="最近学习轨迹" items={state.temporal_traces.slice(0, 4)} primary="user_question" secondary="next_step" fallback="No learning trace yet." flashIds={flashingIds} />
       <div className="reference-box">
         <h3><BookOpen size={16} /> Reference</h3>
         <input value={props.referenceTitle} placeholder="Reference title" onChange={(event) => props.onReferenceTitle(event.target.value)} />
@@ -809,7 +866,7 @@ function LearningStateTab(props: {
   );
 }
 
-function LearningSummaryCard({ summary }: { summary: LearningSummaryPayload }) {
+function LearningSummaryCard({ summary, flashIds }: { summary: LearningSummaryPayload; flashIds?: Set<string> }) {
   const blocker = summary.current_blocker;
   const next = summary.primary_next_action;
   return (
@@ -835,7 +892,7 @@ function LearningSummaryCard({ summary }: { summary: LearningSummaryPayload }) {
       {summary.evidence.length > 0 && (
         <div className="summary-evidence">
           {summary.evidence.slice(0, 5).map((item) => (
-            <div key={`${item.type}-${item.id}`} className={shouldFlashEvidence(item) ? "summary-evidence-item memory-flash" : "summary-evidence-item"}>
+            <div key={`${item.type}-${item.id}`} className={flashIds?.has(item.id) ? "summary-evidence-item memory-flash" : "summary-evidence-item"}>
               <span>{item.type}</span>
               <strong>{item.summary}</strong>
               <small>{item.status}{item.why_it_matters ? ` · ${item.why_it_matters}` : ""}</small>
@@ -917,13 +974,15 @@ function StateGroup({
   items,
   primary,
   secondary,
-  fallback
+  fallback,
+  flashIds
 }: {
   title: string;
   items: Array<Record<string, unknown>>;
   primary: string;
   secondary?: string;
   fallback: string;
+  flashIds?: Set<string>;
 }) {
   return (
     <div className="state-group">
@@ -931,7 +990,7 @@ function StateGroup({
       {items.length === 0 ? <p>{fallback}</p> : (
         <ul>
           {items.map((item) => (
-            <li key={String(item.id)}>
+            <li key={String(item.id)} className={flashIds?.has(String(item.id)) ? "memory-flash" : undefined}>
               <span>{String(item[primary] || item.id)}</span>
               {secondary && item[secondary] ? <small>{formatStateMeta(secondary, item[secondary])}</small> : null}
             </li>
@@ -964,6 +1023,28 @@ function summarizeUpdates(response: ChatResponse): string {
   return traces ? "已记录本轮学习轨迹" : "本轮没有写入新的学习状态";
 }
 
+function buildWritebackPulse(updates: StateUpdates): WritebackPulse | null {
+  const userOriginatedUpdates = updates.user_originated_updates || {};
+  const explicitDurableWrite = Object.values(userOriginatedUpdates).some((value) => {
+    if (typeof value === "number") return value > 0;
+    return Boolean(value);
+  });
+  const ids = [
+    ...idsFrom(updates.claims),
+    ...idsFrom(updates.distinctions),
+    ...idsFrom(updates.temporal_traces),
+    ...idsFrom(updates.review_triggers),
+    ...idsFrom(updates.knowledge_positions),
+    ...idsFrom(updates.derivation_trust_records)
+  ];
+  if (!explicitDurableWrite && ids.length === 0) return null;
+  return { nonce: Date.now(), ids, userOriginatedUpdates };
+}
+
+function idsFrom(items?: RecordItem[]): string[] {
+  return (items || []).map((item) => item.id).filter(Boolean);
+}
+
 function summarizeRunNext(response: RunNextResponse): string {
   const priority = response.priority ? ` · ${response.priority}` : "";
   const action = response.expected_user_action || response.why_this_now || response.reason;
@@ -974,15 +1055,6 @@ function formatStateMeta(key: string, value: unknown): string {
   const text = String(value);
   if (key.includes("created_at") || key.includes("updated_at") || key.includes("time")) return formatShortTime(text);
   return text;
-}
-
-function shouldFlashEvidence(item: { type: string; status: string }): boolean {
-  const status = item.status.toLowerCase();
-  return (
-    (item.type === "distinction" && ["clear", "partially_clear"].includes(status)) ||
-    (item.type === "derivation_trust" && ["trusted", "passed"].includes(status)) ||
-    (item.type === "knowledge_position" && ["a3", "a4"].includes(status))
-  );
 }
 
 function formatShortTime(value: string): string {

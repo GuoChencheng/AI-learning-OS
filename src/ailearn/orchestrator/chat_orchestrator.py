@@ -213,6 +213,7 @@ class ChatOrchestrator:
                 "knowledge_positions": state_updates["knowledge_positions"],
                 "derivation_trust_records": state_updates["derivation_trust_records"],
                 "assessments": assessment_updates,
+                "user_originated_updates": state_updates.get("user_originated_updates", {}),
                 "log_id": state_updates["log_id"],
             },
             "active_learning_unit": active_unit,
