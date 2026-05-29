@@ -47,6 +47,12 @@ class AILearnOSApp:
         if method == "POST" and parts == ["api", "run-next"]:
             return 200, RunNextOrchestrator(self.repository, self.model_gateway).run(payload["project_id"])
 
+        if method == "POST" and parts == ["api", "projects", "seed", "cft"]:
+            from scripts.seed_cft_learning import seed_cft_learning
+
+            project = seed_cft_learning(repository=self.repository)
+            return 200, {"status": "ok", "project_id": project["id"], "project": project}
+
         if parts == ["api", "projects"] and method == "GET":
             return 200, {"items": self.repository.list_projects()}
         if parts == ["api", "projects"] and method == "POST":

@@ -106,6 +106,9 @@ export type ProjectMode = "course" | "exam" | "research" | "general";
 export type ProjectStatus = "active" | "paused" | "archived";
 export type TeachingMode = "auto" | "explain" | "compare" | "socratic" | "derive" | "exercise" | "critic" | "review";
 export type ButtonAction = "explain" | "compare" | "socratic" | "derive" | "exercise" | "correct" | "critic" | "review" | "no_ai_test";
+export type ModelPath = "strong" | "medium" | "fallback";
+export type LearningUnitContextStatus = "new" | "reused" | "refreshed" | "closed" | "jumped" | "unknown";
+export type RunNextDecision = "continue" | "refresh" | "jump" | "close" | "create" | "unknown";
 
 export interface Project {
   id: string;
@@ -171,12 +174,60 @@ export interface StateUpdates {
   log_id?: string;
 }
 
+export interface ReferenceChunkUsage {
+  id?: string;
+  reference_id?: string;
+  title?: string;
+  source?: string;
+  reliability_level?: "high" | "medium" | "low" | "uncertain";
+  scope?: string | null;
+  section_title?: string | null;
+  page_number?: number | null;
+  excerpt: string;
+}
+
+export interface ReferenceChunkRecord extends RecordItem {
+  reference_id: string;
+  chunk_text: string;
+  embedding?: unknown;
+  page_number?: number | null;
+  section_title?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ActiveLearningUnitView {
+  id: string;
+  mode: string;
+  topic?: string;
+  status?: LearningUnit["status"];
+  turnCount: number;
+  contextStatus: LearningUnitContextStatus;
+  action?: string;
+  reason?: string;
+}
+
+export interface MessageMetadata {
+  modelPath?: ModelPath;
+  activeLearningUnit?: ActiveLearningUnitView | null;
+  referenceChunks?: ReferenceChunkUsage[];
+}
+
+export interface RunNextDecisionState {
+  decision: RunNextDecision;
+  reason: string;
+  priority?: string;
+  loopStep?: string;
+  expectedUserAction?: string;
+}
+
 export interface ChatResponse {
   answer: string;
   suggested_next_action: string;
   pipeline_trace: PipelineTrace;
   state_updates: StateUpdates;
   active_learning_unit?: LearningUnit | null;
+  model_path?: ModelPath;
+  reference_chunks?: ReferenceChunkUsage[];
 }
 
 export interface RunNextResponse {
@@ -191,6 +242,9 @@ export interface RunNextResponse {
   expected_user_action?: string;
   will_update?: string[];
   active_learning_unit?: LearningUnit | null;
+  decision?: RunNextDecision;
+  model_path?: ModelPath;
+  reference_chunks?: ReferenceChunkUsage[];
 }
 
 export interface LearningUnit {
@@ -218,6 +272,7 @@ export interface LearningStatePayload {
   derivation_trust_records: RecordItem[];
   review_triggers: RecordItem[];
   module_runs: RecordItem[];
+  learning_units?: LearningUnit[];
 }
 
 export interface ReferenceEntry {
@@ -229,4 +284,10 @@ export interface ReferenceEntry {
   scope: string;
   metadata: Record<string, unknown>;
   created_at: string;
+}
+
+export interface SeedProjectResponse {
+  status: "ok";
+  project_id: string;
+  project: Project;
 }

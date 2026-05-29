@@ -130,7 +130,8 @@ class ChatOrchestrator:
             )
 
         started = perf_counter()
-        answer = ModelBackedAnswerComposerAgent(self.model_gateway).run(
+        answer_composer = ModelBackedAnswerComposerAgent(self.model_gateway)
+        answer = answer_composer.run(
             routing.module,
             pack,
             judge,
@@ -198,6 +199,7 @@ class ChatOrchestrator:
                 "log_id": state_updates["log_id"],
             },
             "active_learning_unit": active_unit,
+            "model_path": answer_composer.last_model_path,
         }
 
 

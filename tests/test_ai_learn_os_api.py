@@ -53,6 +53,7 @@ def test_chat_endpoint_runs_full_pipeline_and_writes_selective_state(tmp_path: P
     assert response.status_code == 200
     data = response.json()
     assert data["answer"]
+    assert data["model_path"] == "fallback"
     assert data["suggested_next_action"]
     assert [step["agent"] for step in data["pipeline_trace"]["steps"]] == [
         "request_intake",
@@ -85,6 +86,26 @@ def test_chat_endpoint_runs_full_pipeline_and_writes_selective_state(tmp_path: P
     assert payload["source_metadata"]["source_type"] == "user_question"
     assert payload["created"]["claims"]
     assert payload["discarded_ephemeral_judgments"]
+
+
+def test_seed_cft_project_endpoint_creates_demo_project(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+
+    response = client.post("/api/projects/seed/cft", json={})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["project_id"] == data["project"]["id"]
+    assert data["project"]["name"] == "我要学习 CFT"
+    state = client.get(f"/api/projects/{data['project_id']}/state").json()
+    refs = client.get(f"/api/projects/{data['project_id']}/references").json()
+    assert state["claims"]
+    assert state["distinctions"]
+    assert state["knowledge_positions"]
+    assert state["derivation_trust_records"]
+    assert state["review_triggers"]
+    assert refs["items"]
 
 
 def test_context_pack_persistence_debug_mode(tmp_path: Path, monkeypatch) -> None:
