@@ -328,10 +328,10 @@ Environment variables:
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://api.openai.com/v1
-AI_LEARN_FAST_MODEL=gpt-4o-mini
-AI_LEARN_MEDIUM_MODEL=gpt-4.1-mini
-AI_LEARN_STRONG_MODEL=gpt-4.1
+OPENAI_BASE_URL=https://api.deepseek.com
+AI_LEARN_FAST_MODEL=deepseek-v4-flash
+AI_LEARN_MEDIUM_MODEL=deepseek-v4-flash
+AI_LEARN_STRONG_MODEL=deepseek-v4-pro
 ```
 
 Use the diagnostic script:
@@ -434,7 +434,7 @@ If your local Python or venv does not process editable `.pth` files correctly,
 use the source-path fallback:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev
+PYTHONPATH=src .venv/bin/learn ui --dev
 ```
 
 ### 2. Configure an AI Provider
@@ -442,17 +442,26 @@ PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev
 Without an API key, the system runs with `FakeModelGateway` and deterministic
 fallbacks. This is enough for local smoke tests and CI.
 
-To enable a real OpenAI-compatible provider:
+To enable a real OpenAI-compatible provider from the shell:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-export OPENAI_BASE_URL="https://api.openai.com/v1"
-export AI_LEARN_FAST_MODEL="gpt-4o-mini"
-export AI_LEARN_MEDIUM_MODEL="gpt-4.1-mini"
-export AI_LEARN_STRONG_MODEL="gpt-4.1"
+export OPENAI_BASE_URL="https://api.deepseek.com"
+export AI_LEARN_FAST_MODEL="deepseek-v4-flash"
+export AI_LEARN_MEDIUM_MODEL="deepseek-v4-flash"
+export AI_LEARN_STRONG_MODEL="deepseek-v4-pro"
 ```
 
-Do not commit `.env` or real API keys.
+You can also configure this inside the web app:
+
+```text
+System Settings -> AI Provider -> Save provider
+```
+
+The web form stores the key in local `.env.local`, which is ignored by git. The
+API never returns the key value.
+
+Do not commit `.env`, `.env.local`, or real API keys.
 
 Check the selected gateway:
 
@@ -495,15 +504,25 @@ Open:
 http://127.0.0.1:8765
 ```
 
+With `--dev`, the command also starts the Vite frontend dev server in the same
+terminal:
+
+```text
+http://127.0.0.1:5173
+```
+
+You no longer need a second terminal just to run the frontend during local
+development.
+
 ### 5. Frontend Development Mode
 
-In one terminal, run the backend:
+The one-command development path is:
 
 ```bash
 .venv/bin/learn ui --dev
 ```
 
-In another terminal, run Vite:
+If you intentionally want to run Vite manually, you can still do so:
 
 ```bash
 cd web
@@ -532,7 +551,7 @@ restart:
 You can also launch directly from the current source tree on another port:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev --port 8766
+PYTHONPATH=src .venv/bin/learn ui --dev --port 8766
 ```
 
 ---

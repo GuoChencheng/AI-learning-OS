@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from pathlib import Path
 
 import typer
@@ -71,6 +73,7 @@ from .storage import (
 )
 from .test_mode import suggest_tests
 from .validate import validate_project
+from .web_server import serve_ui
 
 app = typer.Typer(help="AI Learning OS local learning-state CLI.")
 goal_app = typer.Typer(help="Manage learning goals.")
@@ -1584,14 +1587,35 @@ def next_actions() -> None:
 def ui(
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(8765, "--port"),
-    dev: bool = typer.Option(False, "--dev", help="Print Vite dev command and start the API/static server."),
+    dev: bool = typer.Option(False, "--dev", help="Start both the API server and Vite frontend dev server."),
 ) -> None:
+    frontend_process: subprocess.Popen[bytes] | None = None
     if dev:
-        console.print("Frontend dev server: cd web && npm run dev")
+        frontend_process = start_frontend_dev_server(_root(), host, port)
+        console.print("Frontend dev server: http://127.0.0.1:5173")
         console.print(f"Backend/API server: http://{host}:{port}")
-    from .web_server import serve_ui
+    try:
+        serve_ui(_root(), host=host, port=port)
+    finally:
+        if frontend_process is not None and frontend_process.poll() is None:
+            frontend_process.terminate()
+            try:
+                frontend_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                frontend_process.kill()
 
-    serve_ui(_root(), host=host, port=port)
+
+def start_frontend_dev_server(root: Path, host: str, port: int) -> subprocess.Popen[bytes] | None:
+    web_dir = root / "web"
+    env = {
+        **os.environ,
+        "VITE_API_PROXY_TARGET": f"http://{host}:{port}",
+    }
+    try:
+        return subprocess.Popen(["npm", "run", "dev"], cwd=web_dir, env=env)
+    except FileNotFoundError:
+        console.print("[yellow]npm was not found; API/static server will still start.[/yellow]")
+        return None
 
 
 @app.command("doctor")

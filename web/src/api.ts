@@ -14,6 +14,7 @@ import type {
   Project,
   ProjectSettings,
   ProviderSettings,
+  ProviderSettingsUpdate,
   ReferenceChunkRecord,
   ReferenceEntry,
   ReferenceChunkUsage,
@@ -94,6 +95,8 @@ export const api = {
   referenceChunks: (id: string) => request<ApiList<ReferenceChunkRecord>>(`/api/references/${id}/chunks`),
   revertStateUpdate: (id: string) => request<Record<string, unknown>>(`/api/state-updates/${id}/revert`, { method: "POST", body: JSON.stringify({}) }),
   providerSettings: () => request<ProviderSettings>("/api/settings/providers"),
+  updateProviderSettings: (body: ProviderSettingsUpdate) =>
+    request<ProviderSettings>("/api/settings/providers", { method: "PATCH", body: JSON.stringify(body) }),
   aiRunText: (body: Record<string, unknown>) =>
     request<AiRunResponse>("/api/ai/run-text", { method: "POST", body: JSON.stringify(body) }),
   list: <T = Record<string, unknown>>(resource: string, query = "") => request<ApiList<T>>(`/api/${resource}${query}`),

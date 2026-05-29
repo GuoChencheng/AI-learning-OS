@@ -5,6 +5,8 @@ import json
 from typing import Any
 from urllib.parse import unquote
 
+from fastapi import Request
+
 from ailearn.db.database import Database
 from ailearn.db.repository import Repository
 from ailearn.model_gateway.base import ModelGateway
@@ -15,6 +17,7 @@ from ailearn.orchestrator.chat_orchestrator import ChatOrchestrator
 from ailearn.orchestrator.run_next_orchestrator import RunNextOrchestrator
 from ailearn.references.chunking import chunk_text
 from ailearn.references.extract import extract_reference_text
+from ailearn.settings.local_provider import public_local_provider_settings, save_local_provider_settings
 
 
 class AILearnOSApp:
@@ -105,6 +108,20 @@ class AILearnOSApp:
             if method == "PATCH":
                 return 200, self.repository.update_system_settings(payload)
 
+        if parts == ["api", "settings", "providers"]:
+            if method == "GET":
+                return 200, _provider_settings_payload()
+            if method in {"PATCH", "POST"}:
+                settings = save_local_provider_settings(
+                    api_key=payload.get("api_key"),
+                    base_url=payload.get("base_url"),
+                    fast_model=payload.get("fast_model"),
+                    medium_model=payload.get("medium_model"),
+                    strong_model=payload.get("strong_model"),
+                )
+                self.model_gateway = create_model_gateway_from_env()
+                return 200, _provider_settings_payload(settings)
+
         if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "state" and method == "GET":
             return 200, self.repository.project_state(parts[2])
         if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "learning-summary" and method == "GET":
@@ -184,6 +201,36 @@ def create_core_app(database: Database | None = None, model_gateway: ModelGatewa
     return AILearnOSApp(db, model_gateway=model_gateway or create_model_gateway_from_env())
 
 
+def _provider_settings_payload(settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    provider = settings or public_local_provider_settings()
+    return {
+        "project_home": str(os.getcwd()),
+        "timezone": os.getenv("AI_LEARNING_OS_TIMEZONE", "Asia/Shanghai"),
+        "prompt_only": not provider["api_key_present"],
+        "default_provider": provider["provider_id"],
+        "default_model": provider["strong_model"],
+        "context_budget": os.getenv("AI_LEARNING_OS_CONTEXT_BUDGET", "medium"),
+        "ui_host": os.getenv("AI_LEARNING_OS_UI_HOST", "127.0.0.1"),
+        "ui_port": int(os.getenv("AI_LEARNING_OS_UI_PORT", "8765")),
+        "storage_path": provider["storage_path"],
+        "storage_file": provider["storage_file"],
+        "providers": [
+            {
+                "id": provider["provider_id"],
+                "type": provider["type"],
+                "base_url": provider["base_url"],
+                "api_key_env": "OPENAI_API_KEY",
+                "api_key_present": provider["api_key_present"],
+                "default_model": provider["strong_model"],
+                "fast_model": provider["fast_model"],
+                "medium_model": provider["medium_model"],
+                "strong_model": provider["strong_model"],
+                "is_default": True,
+            }
+        ],
+    }
+
+
 def create_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> Any:
     core = create_core_app(database=database, model_gateway=model_gateway)
     try:
@@ -193,7 +240,7 @@ def create_app(database: Database | None = None, model_gateway: ModelGateway | N
 
 
 def create_fastapi_app(core: AILearnOSApp) -> Any:
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
 
@@ -228,7 +275,7 @@ def create_fastapi_app(core: AILearnOSApp) -> Any:
         return await dispatch(request, "system-settings")
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"])
-    async def api_route(path: str, request: Request) -> JSONResponse:
+    async def api_route(request: Request, path: str) -> JSONResponse:
         return await dispatch(request, path)
 
     app.state.ai_learn_core = core
