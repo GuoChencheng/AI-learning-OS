@@ -28,6 +28,21 @@ def _topic_from_text(text: str) -> str:
     return cleaned[:80].rstrip(" ?？。.")
 
 
+def _action_from_module(module_name: str) -> str:
+    return {
+        "concept_explainer": "explain",
+        "example_comparison": "compare",
+        "socratic_questioner": "socratic",
+        "derivation_coach": "derive",
+        "exercise_generator": "exercise",
+        "exercise_correction_loop": "exercise",
+        "flawed_interpretation_critic": "critic",
+        "review_point_runner": "review",
+        "no_ai_reconstruction_tester": "review",
+        "auto_run_router": "explain",
+    }.get(module_name, "explain")
+
+
 class RequestIntakeAgent:
     def run(self, message: str, selected_mode: str = "auto", button_action: str | None = None) -> RequestIntakeOutput:
         mode = button_action or selected_mode or "auto"
@@ -102,6 +117,49 @@ class ContextPackBuilderAgent:
                     "Do not send learner data to a provider without explicit action.",
                     "Use learning-state records, not a static world knowledge graph.",
                 ],
+                "suggested_learning_action": action,
+                "ai_permission_boundary": "guided_hint" if action == "socratic" else "direct_answer",
+            }
+        )
+
+    def run_from_learning_unit(
+        self,
+        request: str,
+        intake: RequestIntakeOutput,
+        unit: dict[str, Any],
+        turns: list[dict[str, Any]],
+    ) -> ContextPackBuilderOutput:
+        snapshot = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
+        base_pack = snapshot.get("context_pack", {}) if isinstance(snapshot, dict) else {}
+        method = str(unit.get("method") or "concept_explainer")
+        recent_turns = " | ".join(
+            f"{turn.get('role', 'turn')}: {turn.get('turn_summary', '')}" for turn in turns[-6:] if turn.get("turn_summary")
+        )
+        learning_state_parts = [
+            f"Learning unit topic: {unit.get('topic') or intake.topic}.",
+            f"Learning unit method: {method}.",
+        ]
+        if unit.get("unit_summary"):
+            learning_state_parts.append(f"Unit summary: {unit['unit_summary']}.")
+        if recent_turns:
+            learning_state_parts.append(f"Recent unit turns: {recent_turns}.")
+        action = _action_from_module(method)
+        if intake.user_selected_mode in {"compare", "socratic", "derive", "exercise", "critic", "review"}:
+            action = intake.user_selected_mode
+        return ContextPackBuilderOutput.model_validate(
+            {
+                "current_request": request,
+                "goal_context": base_pack.get("goal_context") or "Reusing the active learning unit context.",
+                "reference_context": base_pack.get("reference_context") or "Reusing references selected at unit start.",
+                "learning_state_context": " ".join(learning_state_parts),
+                "known_confusions": list(base_pack.get("known_confusions") or []),
+                "must_respect_constraints": list(
+                    base_pack.get("must_respect_constraints")
+                    or [
+                        "Learning unit context is working memory, not durable learner memory.",
+                        "Do not treat AI output as proof of understanding.",
+                    ]
+                ),
                 "suggested_learning_action": action,
                 "ai_permission_boundary": "guided_hint" if action == "socratic" else "direct_answer",
             }

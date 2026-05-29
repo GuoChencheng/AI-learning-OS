@@ -12,11 +12,15 @@ The main product is not the old CLI-first YAML workflow. The old CLI can remain 
 - Complexity belongs in the backend and the hidden right drawer, not in the main chat flow.
 - Every `/api/chat` request must pass through the Orchestrator pipeline.
 - Every `/api/run-next` request must choose a next action from learning state, not random text generation.
+- AI automatic teaching-method selection is the default interaction.
+- Manual teaching-method controls are collapsed by default and are one-turn/unit-switch overrides.
+- Context preprocessing is learning-unit scoped: run full extraction at unit start or refresh, then reuse unit context across follow-up turns.
 - Agent outputs must be structured Pydantic models.
 - State writes must be traceable in `state_update_logs` and reversible where practical.
 - AI judgments are computation, not memory: context extraction, state judgment, and routing are ephemeral unless explicitly debug-persisted.
 - Durable memory should store learner-originated evidence and state, not every AI intermediate judgment or generic explanation.
 - Context packs are runtime objects by default. Persist them only for debug/audit with `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
+- Learning units store short-lived working context and unit turns. They are not permanent knowledge records.
 - State Writer must distill post-turn learner state and separate `user_originated_updates`, `ai_only_observations`, and `discarded_ephemeral_judgments`.
 - Tests must use `FakeModelGateway`; do not require real API keys.
 - Model routing must support `fast`, `medium`, and `strong` tiers for OpenAI-compatible providers.
@@ -40,7 +44,7 @@ Adjacent concepts should become `Distinction` records. Repeated wrong ideas shou
 
 ## UI Rules
 
-- Main UI: conversation flow, bottom input, send, run-next, left teaching actions, project selector.
+- Main UI: conversation flow, bottom input, send, run-next, collapsed method override, project selector.
 - Right drawer tabs: Projects, Project Settings, System Settings, Learning State.
 - Keep the UI compact, calm, academic, and local-first.
 - Do not expose raw database/admin surfaces in the main screen.

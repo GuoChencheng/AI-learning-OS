@@ -69,6 +69,22 @@ class AILearnOSApp:
             if method == "PATCH":
                 return 200, self.repository.update_project_settings(project_id, payload)
 
+        if len(parts) == 5 and parts[:2] == ["api", "projects"] and parts[3] == "learning-units" and parts[4] == "active" and method == "GET":
+            return 200, {"item": self.repository.get_active_learning_unit(parts[2])}
+        if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "learning-units" and method == "GET":
+            return 200, {"items": self.repository.list_learning_units(parts[2])}
+        if len(parts) == 6 and parts[:2] == ["api", "projects"] and parts[3] == "learning-units" and method == "POST":
+            project_id = parts[2]
+            unit_id = parts[4]
+            unit = self.repository.get_by_id("learning_units", unit_id)
+            if not unit or unit.get("project_id") != project_id:
+                raise KeyError(unit_id)
+            if parts[5] == "close":
+                return 200, self.repository.close_learning_unit(unit_id, payload.get("reason", "user_closed"))
+            if parts[5] == "refresh-context":
+                snapshot = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
+                return 200, self.repository.update_learning_unit(unit_id, {"context_snapshot_json": {**snapshot, "refresh_requested": True}})
+
         if parts == ["api", "system-settings"]:
             if method == "GET":
                 return 200, self.repository.get_system_settings()

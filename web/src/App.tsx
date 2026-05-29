@@ -7,16 +7,13 @@ import {
   GitCompare,
   GraduationCap,
   History,
-  Menu,
   MessageSquareText,
   PenLine,
-  Play,
   Plus,
   Send,
   Settings,
   ShieldCheck,
   Sparkles,
-  Target,
   X
 } from "lucide-react";
 import { api } from "./api";
@@ -77,6 +74,7 @@ function App() {
   const [input, setInput] = useState("");
   const [activeAction, setActiveAction] = useState<ButtonAction | null>(null);
   const [selectedMode, setSelectedMode] = useState<TeachingMode>("auto");
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -283,46 +281,51 @@ function App() {
     await refreshProjectSurfaces(currentProject.id);
   }
 
+  const stateLabel = useMemo(() => {
+    const position = learningState?.knowledge_positions[0];
+    return position?.current_level ? `${String(position.current_level)}: Internalizing` : "A1: Internalizing";
+  }, [learningState]);
+
+  const hudGoal = learningState?.temporal_traces[0]?.next_step
+    ? String(learningState.temporal_traces[0].next_step)
+    : "Ask normally; the OS chooses the next learning action.";
+  const hudClaim = learningState?.claims[0]?.normalized_statement
+    ? String(learningState.claims[0].normalized_statement)
+    : "No durable claim yet.";
+
   return (
     <div className="learn-shell">
-      <TeachingRail activeAction={activeAction} onSelect={(action, mode) => { setActiveAction(action); setSelectedMode(mode); }} />
       <main className="chat-surface">
         <TopBar
           projects={projects}
           currentProject={currentProject}
           onProjectChange={setCurrentProjectId}
+          stateLabel={stateLabel}
+          goal={hudGoal}
+          claim={hudClaim}
           onToggleDrawer={() => setDrawerOpen((value) => !value)}
         />
         <section className="message-list" aria-label="Conversation">
           {messages.map((message) => (
-            <article className={`message-row ${message.role}`} key={message.id}>
-              <div className="message-meta">{message.role === "user" ? "你" : "AI Learn OS"}{message.mode ? ` · ${message.mode}` : ""}</div>
-              <div className="message-bubble">
-                <MarkdownRenderer markdown={message.content} />
-              </div>
-              {message.updateHint && (
-                <div className="state-hint">
-                  <span>{message.updateHint}</span>
-                  {message.updateLogId && !message.reverted && (
-                    <button className="link-control" onClick={() => revertMessageUpdate(message.id, message.updateLogId!)} disabled={busy}>
-                      撤销写回
-                    </button>
-                  )}
-                </div>
-              )}
-            </article>
+            <ChatBubble key={message.id} message={message} busy={busy} onRevert={revertMessageUpdate} />
           ))}
           <div ref={messageEndRef} />
         </section>
         {error && <div className="error-strip">{error}</div>}
         <Composer
           value={input}
-          selectedMode={selectedMode}
           busy={busy}
           activeAction={activeAction}
+          actionMenuOpen={actionMenuOpen}
           onChange={setInput}
           onSend={sendMessage}
           onRun={runNext}
+          onToggleActions={() => setActionMenuOpen((value) => !value)}
+          onSelectAction={(action, mode) => {
+            setActiveAction(action);
+            setSelectedMode(mode);
+            setActionMenuOpen(false);
+          }}
         />
       </main>
       <RightDrawer
@@ -358,105 +361,165 @@ function TopBar({
   projects,
   currentProject,
   onProjectChange,
+  stateLabel,
+  goal,
+  claim,
   onToggleDrawer
 }: {
   projects: Project[];
   currentProject: Project | null;
   onProjectChange: (id: string) => void;
+  stateLabel: string;
+  goal: string;
+  claim: string;
   onToggleDrawer: () => void;
 }) {
   return (
     <header className="top-bar">
-      <div className="brand-mark">
-        <Brain size={18} />
-        <span>AI Learn OS</span>
-      </div>
-      <label className="project-select">
-        <Target size={15} />
+      <label className="hud-breadcrumb">
+        <span>✦ AI Learn OS</span>
+        <span className="hud-slash">/</span>
         <select value={currentProject?.id || ""} onChange={(event) => onProjectChange(event.target.value)}>
           {projects.map((project) => (
             <option key={project.id} value={project.id}>{project.name}</option>
           ))}
         </select>
       </label>
-      <span className={`project-status ${currentProject?.status || "active"}`}>{currentProject?.status || "active"}</span>
-      <button className="icon-control" onClick={onToggleDrawer} title="设置与学习状态">
-        <Menu size={18} />
+      <div className="hud-state" title={`${goal} · ${claim}`}>
+        <span>{stateLabel}</span>
+        <small>{goal} · {claim}</small>
+      </div>
+      <button className="hud-settings" onClick={onToggleDrawer} title="设置与学习状态">
+        <Settings size={18} />
       </button>
     </header>
   );
 }
 
-function TeachingRail({
-  activeAction,
-  onSelect
+function ChatBubble({
+  message,
+  busy,
+  onRevert
 }: {
-  activeAction: ButtonAction | null;
-  onSelect: (action: ButtonAction, mode: TeachingMode) => void;
+  message: ChatMessage;
+  busy: boolean;
+  onRevert: (messageId: string, logId: string) => void;
 }) {
+  const tag = extractEpistemicTag(message.content);
   return (
-    <aside className="teaching-rail" aria-label="教学动作">
-      {actionButtons.map(({ action, mode, label, icon: Icon }) => (
-        <button
-          key={action}
-          className={activeAction === action ? "rail-button active" : "rail-button"}
-          onClick={() => onSelect(action, mode)}
-          title={label}
-        >
-          <Icon size={17} />
-          <span>{label}</span>
-        </button>
-      ))}
-    </aside>
+    <article className={`message-row ${message.role}`}>
+      {message.role !== "user" && (
+        <div className="ai-avatar">
+          <Brain size={14} />
+        </div>
+      )}
+      <div className="message-content">
+        <div className="message-meta">
+          {message.role === "user" ? "You" : "AI Learn OS"}{message.mode ? ` · ${message.mode}` : ""}
+          {tag && <span className="epistemic-tag">{tag.label}</span>}
+        </div>
+        <div className="message-bubble">
+          <MarkdownRenderer markdown={tag ? tag.body : message.content} />
+        </div>
+        {message.updateHint && (
+          <div className="state-hint">
+            <span>{message.updateHint}</span>
+            {message.updateLogId && !message.reverted && (
+              <button className="link-control" onClick={() => onRevert(message.id, message.updateLogId!)} disabled={busy}>
+                撤销写回
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
   );
 }
 
 function Composer({
   value,
-  selectedMode,
   activeAction,
+  actionMenuOpen,
   busy,
   onChange,
   onSend,
-  onRun
+  onRun,
+  onToggleActions,
+  onSelectAction
 }: {
   value: string;
-  selectedMode: TeachingMode;
   activeAction: ButtonAction | null;
+  actionMenuOpen: boolean;
   busy: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
   onRun: () => void;
+  onToggleActions: () => void;
+  onSelectAction: (action: ButtonAction, mode: TeachingMode) => void;
 }) {
+  const hasInput = Boolean(value.trim());
   return (
     <footer className="composer-shell">
       <div className="mode-line">
-        <span>当前模式：{activeAction || selectedMode}</span>
+        <span className={activeAction ? "method-chip manual" : "method-chip"}>
+          {activeAction ? `手动：${labelForAction(activeAction)}` : "自动选择方法"}
+        </span>
       </div>
       <div className="composer">
+        <div className="action-popover-anchor">
+          <button className="plus-control" onClick={onToggleActions} disabled={busy} title="教学方法">
+            <Plus size={19} />
+          </button>
+          {actionMenuOpen && (
+            <div className="action-popover">
+              {actionButtons.filter((item) => item.action !== "correct" && item.action !== "no_ai_test").map(({ action, mode, label, icon: Icon }) => (
+                <button
+                  key={action}
+                  className={activeAction === action ? "action-option active" : "action-option"}
+                  onClick={() => onSelectAction(action, mode)}
+                >
+                  <Icon size={15} />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <textarea
           value={value}
-          placeholder="输入你想问的问题……"
-          rows={2}
+          placeholder={activeAction ? `${labelForAction(activeAction)}模式已选择……` : "Ask a question, or let the OS decide..."}
+          rows={1}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              void onSend();
+              if (hasInput) void onSend();
             }
           }}
         />
         <div className="composer-actions">
-          <button className="icon-control strong" onClick={onSend} disabled={busy || !value.trim()} title="发送">
-            <Send size={18} />
-          </button>
-          <button className="icon-control" onClick={onRun} disabled={busy} title="运行下一步">
-            <Play size={18} />
+          <button
+            className={hasInput ? "magic-action send" : "magic-action run"}
+            onClick={hasInput ? onSend : onRun}
+            disabled={busy}
+            title={hasInput ? "发送" : "Run Next"}
+          >
+            {hasInput ? <Send size={18} /> : <><Sparkles size={16} /><span>Run Next</span></>}
           </button>
         </div>
       </div>
     </footer>
   );
+}
+
+function labelForAction(action: ButtonAction) {
+  return actionButtons.find((item) => item.action === action)?.label || action;
+}
+
+function extractEpistemicTag(content: string) {
+  const match = content.match(/^\[(Hypothesis|Fact|Error|Claim|Review)\]\s*(.*)$/i);
+  if (!match) return null;
+  return { label: match[1], body: match[2] };
 }
 
 function RightDrawer(props: {

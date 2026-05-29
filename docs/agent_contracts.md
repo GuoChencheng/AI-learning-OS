@@ -30,6 +30,8 @@ Context extraction is an ephemeral pre-answer selector. It ranks existing durabl
 
 Context packs are runtime objects. Persist them only in debug/audit mode with `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
 
+When an active learning unit is reused, `ContextPackBuilderAgent.run_from_learning_unit(...)` builds the runtime pack from `learning_units.context_snapshot_json`, the unit summary, recent `learning_unit_turns`, and the current request. It does not re-read all project state unless the unit is refreshed or replaced.
+
 ## State Judge Agent
 
 ```json
@@ -43,6 +45,8 @@ State Judge labels are computation. They can guide routing and writing, but they
 ```json
 {"module":"concept_explainer","secondary_module":"misconception_detector","reason":"...","interaction_mode":"direct_response"}
 ```
+
+Routing priority is manual button, explicit selected mode, active learning unit method, project default, State Judge recommendation, then default explanation. The active unit method keeps multi-turn sequences coherent while auto method selection remains the default.
 
 ## Answer Composer Agent
 

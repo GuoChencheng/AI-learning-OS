@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from ailearn.agents.contracts import AnswerComposerOutput, NewTemporalTrace, StateWriterOutput
+from ailearn.agents.deterministic import ContextExtractorAgent, ContextPackBuilderAgent, RequestIntakeAgent
 from ailearn.db.repository import Repository
 from ailearn.model_gateway.base import ModelGateway
 from ailearn.model_gateway.fake import FakeModelGateway
@@ -19,7 +20,14 @@ class RunNextOrchestrator:
         project = self.repository.get_project(project_id)
         if not project:
             raise KeyError(project_id)
-        decision = self._decide(project_id)
+        active_unit = self.repository.get_active_learning_unit(project_id)
+        learning_unit_action = "reuse_active_unit" if active_unit and int(active_unit.get("turn_count") or 0) < 16 else "create_new_unit"
+        if active_unit and learning_unit_action == "reuse_active_unit":
+            decision = self._continue_unit_decision(active_unit)
+        else:
+            if active_unit:
+                self.repository.close_learning_unit(active_unit["id"], "run_next_unit_refresh")
+            decision = self._decide(project_id)
         answer = AnswerComposerOutput(
             answer=decision["answer"],
             exercise=None,
@@ -27,6 +35,11 @@ class RunNextOrchestrator:
             suggested_next_action=decision["next_action"],
         )
         message = self.repository.add_message(project_id, "assistant", answer.answer, "auto", "run_next")
+        if learning_unit_action == "create_new_unit":
+            active_unit = self._create_run_next_unit(project_id, message["id"], decision)
+        if active_unit:
+            self.repository.add_learning_unit_turn(active_unit["id"], project_id, message["id"], "assistant", answer.answer[:240], {"run_next_priority": decision["priority"]})
+            active_unit = self.repository.get_by_id("learning_units", active_unit["id"])
         writer = StateWriterOutput.model_validate(
             {
                 "new_claims": [],
@@ -59,14 +72,60 @@ class RunNextOrchestrator:
             "chosen_module": decision["chosen_module"],
             "reason": decision["reason"],
             "answer": answer.answer,
-            "pipeline_trace": {"decision": decision, "steps": [{"agent": "run_next_orchestrator", "output": decision}]},
+            "pipeline_trace": {
+                "decision": decision,
+                "steps": [{"agent": "run_next_orchestrator", "output": decision}],
+                "learning_unit": {
+                    "id": active_unit["id"] if active_unit else None,
+                    "action": learning_unit_action,
+                    "method": active_unit.get("method") if active_unit else decision["chosen_module"],
+                    "topic": active_unit.get("topic") if active_unit else decision["reason"],
+                    "turn_count": active_unit.get("turn_count", 0) if active_unit else 0,
+                    "should_run_full_context_extraction": learning_unit_action == "create_new_unit",
+                    "reason": "Run Next continues an active learning unit." if learning_unit_action == "reuse_active_unit" else "Run Next created a new learning unit.",
+                },
+            },
             "state_updates": {"temporal_traces": state_updates["temporal_traces"], "log_id": state_updates["log_id"]},
             "priority": decision["priority"],
             "loop_step": decision["loop_step"],
             "why_this_now": decision["why_this_now"],
             "expected_user_action": decision["expected_user_action"],
             "will_update": decision["will_update"],
+            "active_learning_unit": active_unit,
         }
+
+    def _continue_unit_decision(self, unit: dict[str, Any]) -> dict[str, Any]:
+        topic = unit.get("topic") or "current learning unit"
+        method = unit.get("method") or "auto_run_router"
+        return {
+            "priority": "current_goal_next_action",
+            "loop_step": "action",
+            "chosen_module": method,
+            "reason": f"Continuing active learning unit: {topic}.",
+            "why_this_now": "The active learning unit is still valid, so context should be reused instead of re-extracted.",
+            "expected_user_action": "Continue the current learning sequence.",
+            "will_update": ["temporal_trace", "learning_unit_turn"],
+            "answer": f"继续当前学习单元：{topic}。下一步沿用当前方法，先补上你对上一轮问题的判断或例子。",
+            "next_action": "继续当前学习单元。",
+        }
+
+    def _create_run_next_unit(self, project_id: str, message_id: str, decision: dict[str, Any]) -> dict[str, Any]:
+        request = decision["reason"]
+        intake = RequestIntakeAgent().run(request, "auto", "run_next")
+        extracted = ContextExtractorAgent().run(project_id, self.repository, request)
+        pack = ContextPackBuilderAgent().run(request, intake, extracted)
+        return self.repository.create_learning_unit(
+            project_id,
+            decision["chosen_module"],
+            decision["reason"],
+            message_id,
+            {
+                "context_pack": pack.model_dump(mode="json"),
+                "context_extractor": extracted.model_dump(mode="json"),
+                "created_from_message_id": message_id,
+                "created_by": "run_next",
+            },
+        )
 
     def _decide(self, project_id: str) -> dict[str, Any]:
         state = self.repository.project_state(project_id)

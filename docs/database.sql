@@ -111,6 +111,34 @@ CREATE TABLE IF NOT EXISTS context_packs (
   created_at timestamptz NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS learning_units (
+  id text PRIMARY KEY,
+  project_id text NOT NULL REFERENCES projects(id),
+  status text NOT NULL CHECK (status IN ('active', 'closed', 'abandoned')),
+  method text NOT NULL,
+  topic text NOT NULL,
+  start_message_id text REFERENCES messages(id),
+  last_message_id text REFERENCES messages(id),
+  context_snapshot_json jsonb NOT NULL DEFAULT '{}',
+  unit_summary text NOT NULL DEFAULT '',
+  turn_count integer NOT NULL DEFAULT 0,
+  close_reason text,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL,
+  closed_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS learning_unit_turns (
+  id text PRIMARY KEY,
+  unit_id text NOT NULL REFERENCES learning_units(id),
+  project_id text NOT NULL REFERENCES projects(id),
+  message_id text REFERENCES messages(id),
+  role text NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
+  turn_summary text NOT NULL,
+  user_state_signal_json jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS claims (
   id text PRIMARY KEY,
   project_id text NOT NULL REFERENCES projects(id),
