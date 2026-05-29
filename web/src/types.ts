@@ -157,6 +157,7 @@ export interface PipelineTrace {
   steps: Array<{ agent: string; output: Record<string, unknown> }>;
   decision?: Record<string, unknown>;
   message_ids?: Record<string, string>;
+  debug?: Record<string, unknown>;
 }
 
 export interface StateUpdates {
@@ -164,6 +165,8 @@ export interface StateUpdates {
   distinctions?: RecordItem[];
   temporal_traces?: RecordItem[];
   review_triggers?: RecordItem[];
+  knowledge_positions?: RecordItem[];
+  derivation_trust_records?: RecordItem[];
   log_id?: string;
 }
 
@@ -180,6 +183,11 @@ export interface RunNextResponse {
   answer: string;
   pipeline_trace: PipelineTrace;
   state_updates: StateUpdates;
+  priority?: string;
+  loop_step?: string;
+  why_this_now?: string;
+  expected_user_action?: string;
+  will_update?: string[];
 }
 
 export interface LearningStatePayload {

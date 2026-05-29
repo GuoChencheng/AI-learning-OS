@@ -39,6 +39,8 @@ type ChatMessage = {
   content: string;
   mode?: string;
   updateHint?: string;
+  updateLogId?: string;
+  reverted?: boolean;
 };
 
 type DrawerTab = "projects" | "project-settings" | "system-settings" | "learning-state";
@@ -177,7 +179,8 @@ function App() {
         id: crypto.randomUUID(),
         role: "assistant",
         content: response.answer,
-        updateHint: summarizeUpdates(response)
+        updateHint: summarizeUpdates(response),
+        updateLogId: response.state_updates.log_id
       }
     ]);
   }
@@ -190,7 +193,8 @@ function App() {
         role: "assistant",
         content: response.answer,
         mode: response.chosen_module,
-        updateHint: `${response.chosen_module} · ${response.reason}`
+        updateHint: summarizeRunNext(response),
+        updateLogId: response.state_updates.log_id
       }
     ]);
   }
@@ -209,8 +213,30 @@ function App() {
     setProjectSettings(updated);
   }
 
+  async function updateProject(patch: Partial<Project>) {
+    if (!currentProject) return;
+    const updated = await api.updateProject(currentProject.id, patch);
+    setProjects((items) => items.map((item) => item.id === updated.id ? updated : item));
+    setCurrentProjectId(updated.id);
+  }
+
   async function updateSystemSettings(patch: Partial<SystemSettings>) {
     setSystemSettings(await api.updateSystemSettings(patch));
+  }
+
+  async function revertMessageUpdate(messageId: string, logId: string) {
+    if (!currentProject || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.revertStateUpdate(logId);
+      setMessages((items) => items.map((item) => item.id === messageId ? { ...item, reverted: true, updateHint: "已撤销本轮状态写回" } : item));
+      await refreshProjectSurfaces(currentProject.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Revert failed.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function addReference() {
@@ -274,7 +300,16 @@ function App() {
               <div className="message-bubble">
                 <MarkdownRenderer markdown={message.content} />
               </div>
-              {message.updateHint && <div className="state-hint">{message.updateHint}</div>}
+              {message.updateHint && (
+                <div className="state-hint">
+                  <span>{message.updateHint}</span>
+                  {message.updateLogId && !message.reverted && (
+                    <button className="link-control" onClick={() => revertMessageUpdate(message.id, message.updateLogId!)} disabled={busy}>
+                      撤销写回
+                    </button>
+                  )}
+                </div>
+              )}
             </article>
           ))}
           <div ref={messageEndRef} />
@@ -307,6 +342,7 @@ function App() {
         onNewProjectName={setNewProjectName}
         onCreateProject={createProject}
         onSelectProject={setCurrentProjectId}
+        onProject={updateProject}
         onProjectSettings={updateProjectSettings}
         onSystemSettings={updateSystemSettings}
         onReferenceTitle={setReferenceTitle}
@@ -440,6 +476,7 @@ function RightDrawer(props: {
   onNewProjectName: (value: string) => void;
   onCreateProject: () => void;
   onSelectProject: (id: string) => void;
+  onProject: (patch: Partial<Project>) => void;
   onProjectSettings: (patch: Partial<ProjectSettings>) => void;
   onSystemSettings: (patch: Partial<SystemSettings>) => void;
   onReferenceTitle: (value: string) => void;
@@ -466,7 +503,9 @@ function RightDrawer(props: {
       </nav>
       <div className="drawer-body">
         {props.tab === "projects" && <ProjectsTab {...props} />}
-        {props.tab === "project-settings" && <ProjectSettingsTab settings={props.projectSettings} onPatch={props.onProjectSettings} />}
+        {props.tab === "project-settings" && (
+          <ProjectSettingsTab project={props.currentProject} settings={props.projectSettings} onProject={props.onProject} onPatch={props.onProjectSettings} />
+        )}
         {props.tab === "system-settings" && <SystemSettingsTab settings={props.systemSettings} onPatch={props.onSystemSettings} />}
         {props.tab === "learning-state" && <LearningStateTab {...props} />}
       </div>
@@ -481,11 +520,13 @@ function TabButton({ id, active, onClick, label }: { id: DrawerTab; active: Draw
 function ProjectsTab(props: {
   projects: Project[];
   currentProject: Project | null;
+  learningState?: LearningStatePayload | null;
   newProjectName: string;
   onNewProjectName: (value: string) => void;
   onCreateProject: () => void;
   onSelectProject: (id: string) => void;
 }) {
+  const latestTrace = props.learningState?.temporal_traces[0];
   return (
     <section className="drawer-section">
       <div className="inline-form">
@@ -501,7 +542,8 @@ function ProjectsTab(props: {
           >
             <span>
               <strong>{project.name}</strong>
-              <small>{project.description || "No description"}</small>
+              <small>{props.currentProject?.id === project.id ? String(latestTrace?.next_step || project.description || "Ask a question or run next.") : project.description || "Select to load state."}</small>
+              <small>{props.currentProject?.id === project.id && latestTrace?.created_at ? `最近学习：${formatShortTime(String(latestTrace.created_at))}` : project.status}</small>
             </span>
             <ChevronRight size={16} />
           </button>
@@ -511,18 +553,33 @@ function ProjectsTab(props: {
   );
 }
 
-function ProjectSettingsTab({ settings, onPatch }: { settings: ProjectSettings | null; onPatch: (patch: Partial<ProjectSettings>) => void }) {
+function ProjectSettingsTab({
+  project,
+  settings,
+  onProject,
+  onPatch
+}: {
+  project: Project | null;
+  settings: ProjectSettings | null;
+  onProject: (patch: Partial<Project>) => void;
+  onPatch: (patch: Partial<ProjectSettings>) => void;
+}) {
   if (!settings) return <EmptyState text="Project settings will appear after selecting a project." />;
   return (
     <section className="settings-grid">
+      <TextField label="Project Name" value={project?.name || ""} onChange={(value) => onProject({ name: value })} />
+      <SelectField label="Project Status" value={project?.status || "active"} options={["active", "paused", "archived"]} onChange={(value) => onProject({ status: value as Project["status"] })} />
+      <SelectField label="Project Mode" value={project?.mode || "general"} options={["course", "exam", "research", "general"]} onChange={(value) => onProject({ mode: value as Project["mode"] })} />
+      <SelectField label="Reference Priority" value={settings.reference_priority} options={["balanced", "latest", "reliable", "manual_first"]} onChange={(value) => onPatch({ reference_priority: value })} />
       <SelectField label="Learning Depth" value={settings.learning_depth} options={["light", "medium", "deep"]} onChange={(value) => onPatch({ learning_depth: value })} />
       <SelectField label="Teaching Style" value={settings.teaching_style} options={["concise", "socratic", "exam", "research"]} onChange={(value) => onPatch({ teaching_style: value })} />
       <SelectField label="Record Intensity" value={settings.record_intensity} options={["light", "medium", "heavy"]} onChange={(value) => onPatch({ record_intensity: value })} />
       <SelectField label="No-AI Strictness" value={settings.no_ai_strictness} options={["low", "medium", "high"]} onChange={(value) => onPatch({ no_ai_strictness: value })} />
       <SelectField label="Review Frequency" value={settings.review_frequency} options={["daily", "weekly", "adaptive"]} onChange={(value) => onPatch({ review_frequency: value })} />
-      <SelectField label="Default Module" value={settings.default_learning_action || ""} options={["", "explain", "compare", "socratic", "derive", "exercise", "review"]} onChange={(value) => onPatch({ default_learning_action: value || null })} />
+      <SelectField label="Default Module" value={settings.default_learning_action || ""} options={["", "explain", "compare", "socratic", "derive", "exercise", "critic", "review", "no_ai_test"]} onChange={(value) => onPatch({ default_learning_action: value || null })} />
       <SelectField label="Output Language" value={settings.output_language} options={["zh", "en", "bilingual"]} onChange={(value) => onPatch({ output_language: value })} />
       <SelectField label="Mode" value={settings.exam_research_course_mode} options={["course", "exam", "research", "general"]} onChange={(value) => onPatch({ exam_research_course_mode: value })} />
+      <ModuleChecklist settings={settings} onPatch={onPatch} />
     </section>
   );
 }
@@ -536,6 +593,7 @@ function SystemSettingsTab({ settings, onPatch }: { settings: SystemSettings | n
       <SelectField label="Response Style" value={settings.global_response_style} options={["concise", "guided", "deep"]} onChange={(value) => onPatch({ global_response_style: value })} />
       <SelectField label="Record Policy" value={settings.global_record_policy} options={["light", "medium", "heavy"]} onChange={(value) => onPatch({ global_record_policy: value })} />
       <SelectField label="Privacy Level" value={settings.privacy_level} options={["local", "selected_context", "provider_enabled"]} onChange={(value) => onPatch({ privacy_level: value })} />
+      <ToggleField label="Auto State Update" checked={Boolean(settings.auto_state_update)} onChange={(checked) => onPatch({ auto_state_update: checked ? 1 : 0 })} />
       <SelectField label="Cost / Latency" value={settings.cost_latency_preference} options={["low_cost", "balanced", "low_latency", "quality"]} onChange={(value) => onPatch({ cost_latency_preference: value })} />
       <SelectField label="Notifications" value={settings.notification_preference} options={["none", "local", "daily_digest"]} onChange={(value) => onPatch({ notification_preference: value })} />
       <SelectField label="Theme" value={settings.theme} options={["light", "dark", "system"]} onChange={(value) => onPatch({ theme: value })} />
@@ -555,14 +613,17 @@ function LearningStateTab(props: {
 }) {
   const state = props.learningState;
   if (!state) return <EmptyState text="Learning state is loading." />;
+  const repeatedConfusions = state.claims.filter((claim) => claim.status === "revised" || claim.epistemic_status === "wrong").slice(0, 4);
   return (
     <section className="state-panel">
-      <StateGroup title="当前 Goal" items={state.temporal_traces.slice(0, 2)} primary="next_step" fallback="No recent goal trace." />
-      <StateGroup title="核心 Claim" items={state.claims.slice(0, 4)} primary="normalized_statement" fallback="No claims yet." />
-      <StateGroup title="关键 Distinction" items={state.distinctions.slice(0, 4)} primary="boundary" fallback="No distinctions yet." />
-      <StateGroup title="无 AI 内化区" items={state.knowledge_positions.slice(0, 4)} primary="concept" fallback="No no-AI items yet." />
-      <StateGroup title="推导信任" items={state.derivation_trust_records.slice(0, 4)} primary="result_or_tool" fallback="No derivation trust records yet." />
-      <StateGroup title="回看点" items={state.review_triggers.slice(0, 4)} primary="target" fallback="No review triggers yet." />
+      <StateGroup title="当前 Goal" items={state.temporal_traces.slice(0, 1)} primary="next_step" secondary="created_at" fallback="No recent goal trace." />
+      <StateGroup title="核心 Claim" items={state.claims.slice(0, 4)} primary="normalized_statement" secondary="epistemic_status" fallback="No claims yet." />
+      <StateGroup title="关键 Distinction" items={state.distinctions.slice(0, 4)} primary="boundary" secondary="concept_a" fallback="No distinctions yet." />
+      <StateGroup title="反复误区" items={repeatedConfusions} primary="normalized_statement" secondary="status" fallback="No repeated confusion yet." />
+      <StateGroup title="无 AI 内化区" items={state.knowledge_positions.slice(0, 4)} primary="concept" secondary="current_level" fallback="No no-AI items yet." />
+      <StateGroup title="推导信任" items={state.derivation_trust_records.slice(0, 4)} primary="result_or_tool" secondary="no_ai_reconstruction_status" fallback="No derivation trust records yet." />
+      <StateGroup title="回看点" items={state.review_triggers.slice(0, 4)} primary="target" secondary="status" fallback="No review triggers yet." />
+      <StateGroup title="最近学习轨迹" items={state.temporal_traces.slice(0, 4)} primary="user_question" secondary="next_step" fallback="No learning trace yet." />
       <div className="reference-box">
         <h3><BookOpen size={16} /> Reference</h3>
         <input value={props.referenceTitle} placeholder="Reference title" onChange={(event) => props.onReferenceTitle(event.target.value)} />
@@ -596,13 +657,84 @@ function SelectField({ label, value, options, onChange }: { label: string; value
   );
 }
 
-function StateGroup({ title, items, primary, fallback }: { title: string; items: Array<Record<string, unknown>>; primary: string; fallback: string }) {
+function TextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <label className="field-row">
+      <span>{label}</span>
+      <input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (draft.trim() && draft !== value) onChange(draft.trim());
+        }}
+      />
+    </label>
+  );
+}
+
+function ToggleField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <label className="toggle-row">
+      <span>{label}</span>
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    </label>
+  );
+}
+
+function ModuleChecklist({ settings, onPatch }: { settings: ProjectSettings; onPatch: (patch: Partial<ProjectSettings>) => void }) {
+  const modules = ["explain", "compare", "socratic", "derive", "exercise", "critic", "review", "no_ai_test"];
+  return (
+    <div className="field-row">
+      <span>Enabled Modules</span>
+      <div className="module-grid">
+        {modules.map((module) => {
+          const checked = settings.enabled_modules.length === 0 || settings.enabled_modules.includes(module);
+          return (
+            <label key={module}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(event) => {
+                  const current = settings.enabled_modules.length === 0 ? modules : settings.enabled_modules;
+                  const next = event.target.checked ? Array.from(new Set([...current, module])) : current.filter((item) => item !== module);
+                  onPatch({ enabled_modules: next });
+                }}
+              />
+              {module}
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StateGroup({
+  title,
+  items,
+  primary,
+  secondary,
+  fallback
+}: {
+  title: string;
+  items: Array<Record<string, unknown>>;
+  primary: string;
+  secondary?: string;
+  fallback: string;
+}) {
   return (
     <div className="state-group">
       <h3>{title}</h3>
       {items.length === 0 ? <p>{fallback}</p> : (
         <ul>
-          {items.map((item) => <li key={String(item.id)}>{String(item[primary] || item.id)}</li>)}
+          {items.map((item) => (
+            <li key={String(item.id)}>
+              <span>{String(item[primary] || item.id)}</span>
+              {secondary && item[secondary] ? <small>{formatStateMeta(secondary, item[secondary])}</small> : null}
+            </li>
+          ))}
         </ul>
       )}
     </div>
@@ -617,7 +749,40 @@ function summarizeUpdates(response: ChatResponse): string {
   const claims = response.state_updates.claims?.length || 0;
   const distinctions = response.state_updates.distinctions?.length || 0;
   const reviews = response.state_updates.review_triggers?.length || 0;
-  return `已更新 ${claims} 条 Claim，${distinctions} 条概念区分，${reviews} 个回看点`;
+  const traces = response.state_updates.temporal_traces?.length || 0;
+  const positions = response.state_updates.knowledge_positions?.length || 0;
+  const derivations = response.state_updates.derivation_trust_records?.length || 0;
+  const parts = [
+    claims ? `${claims} Claim` : "",
+    distinctions ? `${distinctions} 区分` : "",
+    reviews ? `${reviews} 回看点` : "",
+    positions ? `${positions} 内化位` : "",
+    derivations ? `${derivations} 推导信任` : ""
+  ].filter(Boolean);
+  if (parts.length > 0) return `已更新 ${parts.join(" · ")}`;
+  return traces ? "已记录本轮学习轨迹" : "本轮没有写入新的学习状态";
+}
+
+function summarizeRunNext(response: RunNextResponse): string {
+  const priority = response.priority ? ` · ${response.priority}` : "";
+  const action = response.expected_user_action || response.why_this_now || response.reason;
+  return `${response.chosen_module}${priority} · ${truncate(action, 72)}`;
+}
+
+function formatStateMeta(key: string, value: unknown): string {
+  const text = String(value);
+  if (key.includes("created_at") || key.includes("updated_at") || key.includes("time")) return formatShortTime(text);
+  return text;
+}
+
+function formatShortTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function truncate(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
 export default App;

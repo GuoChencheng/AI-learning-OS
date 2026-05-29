@@ -14,15 +14,33 @@ import type {
 } from "./types";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options
-  });
-  const data = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options
+    });
+  } catch (err) {
+    throw new Error(`API server is not reachable. Start the backend on 127.0.0.1:8765, then retry. (${err instanceof Error ? err.message : "network error"})`);
+  }
+  const raw = await response.text();
+  const data = parseJsonResponse(raw, path);
   if (!response.ok) {
-    throw new Error(data.error || `Request failed: ${response.status}`);
+    const message = typeof data === "object" && data && "error" in data ? String(data.error) : `Request failed: ${response.status}`;
+    throw new Error(message);
   }
   return data as T;
+}
+
+function parseJsonResponse(raw: string, path: string): unknown {
+  if (!raw.trim()) {
+    throw new Error(`API returned an empty response for ${path}. The backend may be stopped or still running an old server build.`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(`API returned non-JSON for ${path}. Check that the backend server is running the current AI Learn OS API.`);
+  }
 }
 
 export const api = {
