@@ -125,6 +125,8 @@ class RunNextOrchestrator:
                 },
             },
             "state_updates": {"temporal_traces": state_updates["temporal_traces"], "log_id": state_updates["log_id"]},
+            "decision": _decision_from_learning_unit_action(learning_unit_action),
+            "model_path": "fallback",
             "priority": decision["priority"],
             "loop_step": decision["loop_step"],
             "why_this_now": decision["why_this_now"],
@@ -271,6 +273,20 @@ class RunNextOrchestrator:
 def _refresh_requested(unit: dict[str, Any]) -> bool:
     snapshot = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
     return bool(snapshot.get("refresh_requested"))
+
+
+def _decision_from_learning_unit_action(action: str) -> str:
+    if action == "continue_active_unit":
+        return "continue"
+    if action == "refresh_active_unit":
+        return "refresh"
+    if action == "jump_to_global_priority":
+        return "jump"
+    if action == "close_active_unit":
+        return "close"
+    if action == "create_new_unit":
+        return "create"
+    return "unknown"
 
 
 def _should_jump_to_global_priority(decision: dict[str, Any], active_unit: dict[str, Any]) -> bool:

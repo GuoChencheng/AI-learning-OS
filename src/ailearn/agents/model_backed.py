@@ -13,6 +13,7 @@ class ModelBackedAnswerComposerAgent:
     def __init__(self, model_gateway: ModelGateway) -> None:
         self.model_gateway = model_gateway
         self.fallback_agent = AnswerComposerAgent()
+        self.last_model_path = "fallback"
 
     def run(
         self,
@@ -26,8 +27,11 @@ class ModelBackedAnswerComposerAgent:
         fallback = self.fallback_agent.run(module_name, pack, judge)
         prompt = _answer_prompt(module_name, pack, judge, active_unit, project_settings, system_settings)
         try:
-            return self.model_gateway.complete_structured(prompt, AnswerComposerOutput, tier=ModelTier.STRONG, fallback=fallback)
+            result = self.model_gateway.complete_structured(prompt, AnswerComposerOutput, tier=ModelTier.STRONG, fallback=fallback)
+            self.last_model_path = "fallback" if result == fallback else "strong"
+            return result
         except (ModelGatewayError, RuntimeError, ValueError, ValidationError):
+            self.last_model_path = "fallback"
             return fallback
 
 

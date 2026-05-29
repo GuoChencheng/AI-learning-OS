@@ -16,15 +16,17 @@ import {
   Sparkles,
   X
 } from "lucide-react";
-import { api } from "./api";
+import { api, extractMessageMetadata, extractRunNextDecision } from "./api";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type {
   ButtonAction,
   ChatResponse,
   LearningStatePayload,
+  MessageMetadata,
   Project,
   ProjectSettings,
   ReferenceEntry,
+  RunNextDecisionState,
   RunNextResponse,
   SystemSettings,
   TeachingMode
@@ -38,6 +40,7 @@ type ChatMessage = {
   updateHint?: string;
   updateLogId?: string;
   reverted?: boolean;
+  metadata?: MessageMetadata;
 };
 
 type DrawerTab = "projects" | "project-settings" | "system-settings" | "learning-state";
@@ -75,6 +78,7 @@ function App() {
   const [activeAction, setActiveAction] = useState<ButtonAction | null>(null);
   const [selectedMode, setSelectedMode] = useState<TeachingMode>("auto");
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [runDecision, setRunDecision] = useState<RunNextDecisionState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -118,13 +122,14 @@ function App() {
   }
 
   async function refreshProjectSurfaces(projectId: string) {
-    const [settings, state, refs] = await Promise.all([
+    const [settings, state, refs, units] = await Promise.all([
       api.projectSettings(projectId),
       api.state(projectId),
-      api.references(projectId)
+      api.references(projectId),
+      api.learningUnits(projectId)
     ]);
     setProjectSettings(settings);
-    setLearningState(state);
+    setLearningState({ ...state, learning_units: units.items });
     setReferences(refs.items);
   }
 
@@ -137,6 +142,7 @@ function App() {
     const action = activeAction;
     const mode = action ? actionButtons.find((item) => item.action === action)?.mode || selectedMode : selectedMode;
     setMessages((items) => [...items, { id: crypto.randomUUID(), role: "user", content, mode: action || mode }]);
+    setRunDecision(null);
     try {
       const response = await api.chat({
         project_id: currentProject.id,
@@ -161,6 +167,7 @@ function App() {
     setError("");
     try {
       const response = await api.runNext(currentProject.id);
+      setRunDecision(extractRunNextDecision(response));
       appendRunNext(response);
       await refreshProjectSurfaces(currentProject.id);
     } catch (err) {
@@ -178,7 +185,8 @@ function App() {
         role: "assistant",
         content: response.answer,
         updateHint: summarizeUpdates(response),
-        updateLogId: response.state_updates.log_id
+        updateLogId: response.state_updates.log_id,
+        metadata: extractMessageMetadata(response)
       }
     ]);
   }
@@ -192,7 +200,8 @@ function App() {
         content: response.answer,
         mode: response.chosen_module,
         updateHint: summarizeRunNext(response),
-        updateLogId: response.state_updates.log_id
+        updateLogId: response.state_updates.log_id,
+        metadata: extractMessageMetadata(response)
       }
     ]);
   }
@@ -316,6 +325,7 @@ function App() {
           value={input}
           busy={busy}
           activeAction={activeAction}
+          runDecision={runDecision}
           actionMenuOpen={actionMenuOpen}
           onChange={setInput}
           onSend={sendMessage}
@@ -421,6 +431,7 @@ function ChatBubble({
         <div className="message-bubble">
           <MarkdownRenderer markdown={tag ? tag.body : message.content} />
         </div>
+        {message.role === "assistant" && <MessageMetadataChips metadata={message.metadata} />}
         {message.updateHint && (
           <div className="state-hint">
             <span>{message.updateHint}</span>
@@ -439,6 +450,7 @@ function ChatBubble({
 function Composer({
   value,
   activeAction,
+  runDecision,
   actionMenuOpen,
   busy,
   onChange,
@@ -449,6 +461,7 @@ function Composer({
 }: {
   value: string;
   activeAction: ButtonAction | null;
+  runDecision: RunNextDecisionState | null;
   actionMenuOpen: boolean;
   busy: boolean;
   onChange: (value: string) => void;
@@ -458,6 +471,7 @@ function Composer({
   onSelectAction: (action: ButtonAction, mode: TeachingMode) => void;
 }) {
   const hasInput = Boolean(value.trim());
+  const heavyRunState = !hasInput && Boolean(runDecision && ["close", "create"].includes(runDecision.decision));
   return (
     <footer className="composer-shell">
       <div className="mode-line">
@@ -499,16 +513,47 @@ function Composer({
         />
         <div className="composer-actions">
           <button
-            className={hasInput ? "magic-action send" : "magic-action run"}
+            className={hasInput ? "magic-action send" : heavyRunState ? "magic-action run processing" : "magic-action run"}
             onClick={hasInput ? onSend : onRun}
             disabled={busy}
             title={hasInput ? "发送" : "Run Next"}
           >
             {hasInput ? <Send size={18} /> : <><Sparkles size={16} /><span>Run Next</span></>}
           </button>
+          {!hasInput && runDecision && <span className="run-decision-chip">{formatRunDecision(runDecision)}</span>}
         </div>
       </div>
     </footer>
+  );
+}
+
+function MessageMetadataChips({ metadata }: { metadata?: MessageMetadata }) {
+  if (!metadata) return null;
+  const chunks = metadata.referenceChunks || [];
+  const hasContent = metadata.modelPath || metadata.activeLearningUnit || chunks.length > 0;
+  if (!hasContent) return null;
+  return (
+    <div className="metadata-chips text-xs text-gray-400 opacity-70 hover:opacity-100">
+      {metadata.activeLearningUnit && (
+        <span className="metadata-chip" title={metadata.activeLearningUnit.reason || metadata.activeLearningUnit.topic || ""}>
+          {formatModuleName(metadata.activeLearningUnit.mode)} · turn {metadata.activeLearningUnit.turnCount} · {formatContextStatus(metadata.activeLearningUnit.contextStatus)}
+        </span>
+      )}
+      {metadata.modelPath && <span className="metadata-chip">{formatModelPath(metadata.modelPath)}</span>}
+      {chunks.length > 0 && (
+        <span className="metadata-chip reference-metadata-chip">
+          {chunks.length} reference{chunks.length > 1 ? "s" : ""} used
+          <span className="reference-preview">
+            {chunks.slice(0, 3).map((chunk, index) => (
+              <span key={`${chunk.reference_id || chunk.title || "reference"}-${index}`}>
+                <strong>{chunk.title || chunk.source || "Reference"}</strong>
+                <small>{truncate(chunk.excerpt, 180)}</small>
+              </span>
+            ))}
+          </span>
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -520,6 +565,53 @@ function extractEpistemicTag(content: string) {
   const match = content.match(/^\[(Hypothesis|Fact|Error|Claim|Review)\]\s*(.*)$/i);
   if (!match) return null;
   return { label: match[1], body: match[2] };
+}
+
+function formatModelPath(path: NonNullable<MessageMetadata["modelPath"]>): string {
+  if (path === "strong") return "strong model";
+  if (path === "medium") return "medium model";
+  return "deterministic fallback";
+}
+
+function formatModuleName(value: string): string {
+  const labels: Record<string, string> = {
+    concept_explainer: "Explain",
+    example_comparison: "Compare",
+    socratic_questioner: "Socratic",
+    derivation_coach: "Derive",
+    exercise_generator: "Exercise",
+    exercise_correction_loop: "Correct",
+    flawed_interpretation_critic: "Critic",
+    review_point_runner: "Review",
+    no_ai_reconstruction_tester: "No-AI Test",
+    auto_run_router: "Auto"
+  };
+  return labels[value] || value;
+}
+
+function formatContextStatus(value: NonNullable<MessageMetadata["activeLearningUnit"]>["contextStatus"]): string {
+  const labels: Record<string, string> = {
+    new: "context new",
+    reused: "context reused",
+    refreshed: "context refreshed",
+    closed: "unit closed",
+    jumped: "priority jump",
+    unknown: "context"
+  };
+  return labels[value] || value;
+}
+
+function formatRunDecision(decision: RunNextDecisionState): string {
+  const labels: Record<RunNextDecisionState["decision"], string> = {
+    continue: "Continuing unit",
+    refresh: "Refreshing context",
+    jump: "Jumped to priority",
+    close: "Closing and distilling",
+    create: "Creating learning unit",
+    unknown: "Auto decision"
+  };
+  const reason = decision.reason || decision.expectedUserAction || decision.priority || "";
+  return `${labels[decision.decision]}${reason ? ` · ${truncate(reason, 58)}` : ""}`;
 }
 
 function RightDrawer(props: {

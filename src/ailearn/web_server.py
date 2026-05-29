@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
+from .api.app import AILearnOSApp, create_core_app
 from .web_api import handle_api_request
 
 
@@ -17,6 +18,7 @@ def _json_bytes(data: dict[str, Any]) -> bytes:
 class LearningOSRequestHandler(BaseHTTPRequestHandler):
     root: Path = Path.cwd()
     static_dir: Path | None = None
+    api_core: AILearnOSApp | None = None
 
     def log_message(self, format: str, *args: Any) -> None:
         return
@@ -84,6 +86,11 @@ class LearningOSRequestHandler(BaseHTTPRequestHandler):
     def _handle(self, method: str) -> None:
         if self.path.startswith("/api/"):
             payload = self._read_json() if method in {"POST", "PUT", "PATCH"} else None
+            if self.api_core is not None:
+                status, data = self.api_core.handle(method, self.path, payload or {})
+                if status != 404:
+                    self._send_json(status, data if isinstance(data, dict) else {"items": data})
+                    return
             response = handle_api_request(method, self.path, payload, self.root)
             self._send_json(response.status, response.data)
             return
@@ -108,10 +115,12 @@ class LearningOSRequestHandler(BaseHTTPRequestHandler):
 def serve_ui(root: Path | str = ".", host: str = "127.0.0.1", port: int = 8765, static_dir: Path | None = None) -> None:
     base = Path(root).resolve()
     frontend_dist = static_dir or (base / "web" / "dist")
+    core = create_core_app()
 
     class Handler(LearningOSRequestHandler):
         root = base
         static_dir = frontend_dist if frontend_dist.exists() else None
+        api_core = core
 
     server = ThreadingHTTPServer((host, port), Handler)
     print(f"ai-learning-os UI: http://{host}:{port}")
