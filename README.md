@@ -1,318 +1,448 @@
 # AI Learn OS
 
-> **AI-native Learning State Management System**  
-> 不是知识库，不是笔记软件，也不是 AI 摘要器。AI Learn OS 管理的是学习者与知识之间的关系：目标、位置、判断、误区、推导信任与下一步行动。
+> **An AI-native learning state management system.**
+>
+> Not a knowledge base. Not a note-taking app. Not an AI summarizer.
+> AI Learn OS manages the learner's relationship with knowledge: goals, claims,
+> distinctions, epistemic status, derivation trust, review triggers, and the next
+> best learning action.
 
-AI Learn OS 的界面像一个极简聊天窗口；它的内部像一个学习操作系统。用户只需要提出问题，系统在后台完成意图识别、项目定位、上下文打包、学习状态判断、教学方法路由、回答生成与状态写回。
+AI Learn OS looks like a minimal chat interface. Internally, it behaves like a
+learning operating system. The learner asks questions or clicks `Run Next`; the
+system handles intent parsing, project resolution, context packaging, learning
+state judgment, teaching-method routing, answer generation, assessment, and
+durable state writeback.
 
-它的核心命题很简单：
+The core thesis is simple:
 
-**AI 可以动态生成知识，但不能替你完成理解。**
-
----
-
-## 为什么是 AI Learn OS？
-
-### 1. 前台极简，后台复杂
-
-用户看到的只是一个干净的对话界面、一个项目路径、一枚学习状态指示器、一个会变形的 `Run Next` 按钮，以及一个隐藏的 Inspector。
-
-真正复杂的工作不暴露在屏幕上。每次 `/api/chat` 都会进入 Orchestrator，由多 Agent 管线处理：
-
-- 解析用户意图；
-- 解析当前学习项目；
-- 选择相关目标、参考资料和历史学习状态；
-- 构造 Context Pack；
-- 判断当前学习状态；
-- 选择教学模块；
-- 生成回答；
-- 写回学习者侧状态。
-
-这是一种 Steve Jobs 式的产品原则：**表面必须安静，系统必须深。**
-
-### 2. 从知识管理转向学习状态管理
-
-传统知识管理试图保存“世界知识”。AI Learn OS 不这么做。
-
-AI 可以在运行时解释概念、生成例子、比较理论、展开推导。真正稀缺、真正需要保存的是学习者自己的状态：
-
-- 我当前的目标是什么？
-- 我把什么当成了事实、类比、猜想或误区？
-- 我在哪两个概念之间混淆？
-- 哪个推导我只是看懂了，哪个推导我真的能重构？
-- 哪些东西必须进入无 AI 内化区？
-- 下一轮最值得做什么？
-
-因此，AI Learn OS 存储的不是百科知识，而是学习关系：
-
-`Goals`、`Claims`、`Distinctions`、`Temporal Traces`、`Knowledge Positions`、`Epistemic Marks`、`Derivation Trust`、`Review Triggers`。
-
-### 3. 制度化人的主体性
-
-AI 可以建议、解释、追问、出题、批判和提醒。
-
-但 AI 不能替代：
-
-- 学习者的最终判断；
-- 学习者亲自完成的推导；
-- 学习者在无提示状态下的重构能力；
-- 学习者对“我是否真的理解了”的承诺。
-
-AI Learn OS 的状态写回策略正是为此设计的：AI 中间判断是计算，不是记忆。只有有学习者侧证据的状态，才会进入 durable memory。
+**AI can generate knowledge on demand, but it cannot understand on your behalf.**
 
 ---
 
-## 核心学习闭环
+## Why AI Learn OS?
 
-AI Learn OS 不把一次对话视作孤立问答，而是把它放入一个连续的学习循环。
+### 1. Quiet Surface, Deep System
+
+The learner sees a clean conversation stream, a project path, a compact learning
+state indicator, a morphing `Run Next` button, and a hidden Inspector.
+
+The system complexity stays below the surface. Every `/api/chat` request enters
+an orchestrated pipeline:
+
+- parse the user's intent;
+- resolve the current project;
+- select relevant goals, references, and learner-state records;
+- build a runtime Context Pack;
+- judge the current learning state;
+- route to the appropriate learning module;
+- compose the answer;
+- distill durable learner-side state.
+
+The product principle is deliberate:
+
+**The interface should stay quiet. The system should be deep.**
+
+### 2. From Knowledge Management to Learning State Management
+
+Traditional knowledge tools try to store world knowledge. AI Learn OS does not.
+
+AI can explain concepts, generate examples, compare theories, and reconstruct
+derivations dynamically. The scarce state worth preserving is learner-side
+evidence:
+
+- What is the learner trying to achieve?
+- Which claims did the learner make?
+- Which concepts are being confused?
+- Which derivation steps were personally reconstructed?
+- Which steps were only AI-hinted?
+- Which concepts must enter no-AI internalization?
+- What should happen next?
+
+AI Learn OS stores learning relationships rather than encyclopedia entries:
+
+`Goals`, `Claims`, `Distinctions`, `Temporal Traces`, `Knowledge Positions`,
+`Epistemic Marks`, `Derivation Trust`, `Review Triggers`, and
+`Misconception Records`.
+
+### 3. Institutionalized Human Agency
+
+AI may suggest, explain, question, critique, and schedule review.
+
+AI must not replace:
+
+- the learner's final judgment;
+- the learner's personal derivation work;
+- the learner's no-prompt reconstruction ability;
+- the learner's commitment to whether something is truly understood.
+
+That is why the state writer is conservative. AI judgments are computation, not
+memory. Durable memory stores learner-side evidence.
+
+---
+
+## Core Learning Loop
+
+AI Learn OS does not treat a chat turn as an isolated Q&A event. Each turn is
+placed inside a continuous learning loop.
 
 ```mermaid
 graph TD
-  A([Goal<br/>目标]) --> B([Positioning<br/>定位])
-  B --> C([Action<br/>学习动作])
-  C --> D([Idea<br/>想法/回答])
-  D --> E([Verification<br/>验证])
-  E --> F([Epistemic Marking<br/>认识论标记])
-  F --> G([Processing<br/>处理与写回])
-  G --> H([Next Turn<br/>下一轮])
+  A([Goal]) --> B([Positioning])
+  B --> C([Action])
+  C --> D([Idea])
+  D --> E([Verification])
+  E --> F([Epistemic Marking])
+  F --> G([Processing])
+  G --> H([Next Turn])
   H --> A
 
   classDef quiet fill:#ffffff,stroke:#d1d5db,color:#111827,stroke-width:1px;
-  classDef soft fill:#f8fafc,stroke:#d1d5db,color:#111827,stroke-width:1px;
-
   class A,B,C,D,E,F,G,H quiet;
   style C fill:#f3f4f6,stroke:#9ca3af
   style F fill:#f3f4f6,stroke:#9ca3af
 ```
 
-这个闭环可以由用户输入触发，也可以由空输入状态下的 `Run Next` 触发。
+The loop can be triggered by a user message or by the empty-input `Run Next`
+action.
 
-`Run Next` 不随机生成内容。它读取当前学习状态，并按优先级选择下一步：
+`Run Next` is not random continuation. It reads the current learning state and
+chooses the next action by priority:
 
-1. 到期的 Review Trigger；
-2. 反复出现的误区；
-3. 无 AI 内化区但未验证的内容；
-4. 当前 Goal 的下一步；
-5. 最近未解决的问题；
-6. 新知识推进。
+1. due or failed review triggers;
+2. recurring misconceptions;
+3. no-AI internalization below the target level;
+4. derivation trust gaps;
+5. distinction tests or retests;
+6. current goal next action;
+7. recent unresolved questions;
+8. new knowledge progression.
 
 ---
 
-## 后端多 Agent 管线
+## Multi-Agent Backend Pipeline
 
-每次 `/api/chat` 都会经过固定的 8 步 Agent Pipeline。每个 Agent 输出结构化 JSON，并通过 Pydantic 合约校验。
+Every `/api/chat` request passes through a fixed 8-agent pipeline. Agent outputs
+are structured JSON and validated with Pydantic contracts.
 
 ```mermaid
 graph LR
-  A([Request Intake<br/>意图识别])
-  B([Project Resolver<br/>项目定位])
-  C([Context Extractor<br/>上下文选择])
-  D([Context Pack Builder<br/>上下文打包])
-  E([State Judge<br/>学习状态判断])
-  F([Module Router<br/>教学模块路由])
-  G([Answer Composer<br/>回答生成])
-  H([State Writer<br/>状态写回])
+  A([Request Intake Agent])
+  B([Project Resolver Agent])
+  C([Context Extractor Agent])
+  D([Context Pack Builder Agent])
+  E([State Judge Agent])
+  F([Module Router Agent])
+  G([Answer Composer Agent])
+  H([State Writer Agent])
 
   A --> B --> C --> D --> E --> F --> G --> H
 
   classDef agent fill:#ffffff,stroke:#d1d5db,color:#111827,stroke-width:1px;
-  classDef memory fill:#f9fafb,stroke:#9ca3af,color:#111827,stroke-width:1px;
-
   class A,B,C,D,E,F,G,H agent;
   style D fill:#f9fafb,stroke:#9ca3af
   style H fill:#f3f4f6,stroke:#6b7280
 ```
 
-重要的是：`Context Extractor`、`State Judge`、`Module Router` 的判断默认是 ephemeral computation。它们可以进入 `pipeline_trace`，但不会自动变成学习记忆。
+The important architectural rule:
 
-真正进入 durable memory 的，是 State Writer 从用户问题、用户回答、用户错误、自我修正、推导尝试和无 AI 测试中提炼出的学习者状态。
+**Context extraction, state judgment, and module routing are ephemeral by
+default.**
+
+They may appear in `pipeline_trace`, but they are not automatically promoted to
+learning memory. Durable records are created by the post-turn State Writer and
+assessment services only when grounded in learner-side evidence: a user question,
+answer attempt, confusion, correction, derivation attempt, no-AI response, or
+review outcome.
 
 ---
 
-## 关键交互与 UI 架构
+## Product Experience
 
-### Top HUD：Learning Island
+### Top HUD
 
-顶部 HUD 使用轻量 frosted-glass 视觉：左侧是项目路径，中间是学习状态胶囊，右侧是 Inspector 入口。
+The top HUD keeps the current project and learning state visible without turning
+the app into a dashboard. It shows:
 
-状态胶囊显示当前内化等级，例如：
+- project path;
+- current internalization indicator, such as `A1: Internalizing`;
+- a hidden-hover preview of the current goal and recent claim;
+- the Inspector entry point.
 
-```text
-A1: Internalizing
-```
+### Smart Input
 
-悬停时，它会展开显示当前 Goal 与最近 Claim。用户不需要进入复杂后台，也能知道系统正在怎样理解当前学习位置。
+The bottom composer is the main control surface.
 
-### Smart Input：会变形的学习输入区
+- When the input is empty, the action button shows `Run Next`.
+- When the learner starts typing, it becomes `Send`.
+- The `+` button opens a compact teaching-method menu.
+- Manual methods are temporary overrides, not the default workflow.
 
-底部输入区是主交互中心。
+Supported teaching methods include:
 
-- 输入为空时，右侧按钮显示 `Run Next`，并有微弱呼吸感，提示系统可以自动推进下一步；
-- 用户开始输入时，按钮变成发送动作；
-- 左侧 `+` 打开教学方法菜单；
-- 教学方法不会常驻屏幕，避免把学习界面变成控制台。
-
-这使 AI Learn OS 的默认体验保持简单：
-
-```text
-直接提问 -> 系统自动选择教学方法 -> 回答 -> 写回学习状态
-```
-
-手动教学方法只是 override：
-
-- Explain；
-- Compare；
-- Socratic；
-- Derive；
-- Exercise；
-- Critic；
-- Review；
-- No-AI Test。
-
-### Progressive Disclosure Command Menu
-
-复杂能力被隐藏在 `+` 菜单与未来的 `/` slash command 中。
-
-用户不需要每轮都选择“解释 / 比较 / 推导 / 出题”。系统默认自动选择。只有当用户明确想接管教学方式时，才展开命令菜单。
+- Explain;
+- Compare;
+- Socratic;
+- Derive;
+- Exercise;
+- Critic;
+- Review;
+- No-AI Test.
 
 ### Right Inspector
 
-右侧 Inspector 默认隐藏，只在需要时打开。它承载所有复杂状态：
+The Inspector is hidden by default. It contains the complexity that should not
+clutter the main chat:
 
-- Projects；
-- Project Settings；
-- System Settings；
-- Learning State；
-- References；
-- Claims；
-- Distinctions；
-- Review Triggers；
-- Knowledge Positions；
-- Derivation Trust。
+- Projects;
+- Project Settings;
+- System Settings;
+- Learning State;
+- References;
+- Claims;
+- Distinctions;
+- Review Triggers;
+- Knowledge Positions;
+- Derivation Trust;
+- Learning Units;
+- Learning Summary.
 
-主界面始终保持纯净，复杂性被放到正确的位置。
+The Learning State tab starts with a compact summary:
 
----
-
-## 学习单元：Unit-scoped Context
-
-AI Learn OS 不再把每一轮对话都当作全局上下文抽取任务。
-
-系统引入 **Learning Unit**：一个短生命周期的学习微会话，例如：
-
-- 一组 Socratic 追问；
-- 一次推导教练过程；
-- 一轮错题修正；
-- 一次概念边界比较；
-- 一次无 AI 重构测试；
-- 一次 Review Trigger 回看。
-
-在学习单元开始时，系统执行完整 Context Extraction，并保存一份短期 `context_snapshot_json`。同一单元内的后续轮次复用这份快照与最近 `learning_unit_turns`，直到：
-
-- 用户手动切换教学方法；
-- 话题明显漂移；
-- 单元达到轮次上限；
-- 用户要求结束；
-- Run Next 判定需要刷新或关闭。
-
-Learning Unit 是工作记忆，不是最终学习记忆。最终学习状态仍由 State Writer 写入 durable memory。
+- current blocker;
+- primary next action;
+- evidence;
+- key counts.
 
 ---
 
-## 学习评估闭环
+## Learning Units
 
-Alpha 版本开始评估学习证据，而不只是记录学习事件。
+Context preprocessing is unit-scoped, not turn-scoped.
 
-- **No-AI Test**：根据用户无提示回答更新 A0-A4；A4 必须来自延迟回看成功，不能由一次新鲜回答直接获得。
-- **Derivation Trust**：逐步区分 `done_by_user`、`hinted_by_ai` 与 `untrusted_steps`。
-- **Distinction Test**：区分记录支持 `needs_test`、`partially_clear`、`clear`、`failed`、`needs_retest`。
-- **Claim Epistemic Status**：把用户 Claim 校准为 fact、inference、analogy、learning strategy、wrong 或 open question。
-- **Misconception Recurrence**：反复误区会形成 durable blocker，并进入 Inspector 与 Run Next 优先级。
-- **Review Trigger Loop**：回看点可以 completed / failed / skipped；失败或到期项会优先驱动下一轮。
+A **Learning Unit** is a short-lived micro-session, such as:
 
-这些评估只在有用户回答、无 AI 尝试、推导尝试、概念边界测试或明确修正时写入 durable memory。AI 的中间判断仍然只是计算。
+- a Socratic questioning sequence;
+- a derivation coaching sequence;
+- an exercise correction loop;
+- a flawed interpretation critique;
+- a no-AI reconstruction test;
+- a review point run;
+- a comparison or concept explanation follow-up.
+
+At unit start, the system performs full context extraction and stores a short-term
+`context_snapshot_json`. Later turns in the same unit reuse the snapshot plus
+recent `learning_unit_turns` until the unit is closed, refreshed, abandoned, or
+superseded by a higher-priority global task.
+
+Learning Unit context is working memory. It is not final learner memory.
+Durable learner state is written by post-turn or unit-close distillation.
 
 ---
 
-## 技术栈
+## Learning Assessment Loop
 
-AI Learn OS 的目标产品栈：
+The alpha system evaluates learning evidence instead of merely logging events.
+
+### No-AI Reconstruction
+
+No-AI tests score internalization from A0 to A4:
+
+| Level | Meaning |
+|---|---|
+| A0 | Important, but not yet demonstrated. |
+| A1 | The learner can give a basic definition or rough explanation. |
+| A2 | The learner can distinguish the concept from nearby concepts. |
+| A3 | The learner can reconstruct, apply, or derive it in a useful setting. |
+| A4 | The learner can retrieve and apply it after delay without AI prompting. |
+
+A4 is intentionally strict. It should not be granted from a single fresh answer.
+
+### Derivation Trust
+
+Derivation records distinguish:
+
+- steps done by the learner;
+- steps hinted by AI;
+- untrusted or missing steps;
+- next re-derivation time;
+- reconstruction status.
+
+### Distinction Tests
+
+Distinctions support test and retest states:
+
+- `needs_test`;
+- `partially_clear`;
+- `clear`;
+- `failed`;
+- `needs_retest`.
+
+### Claim Epistemic Status
+
+Claims are classified with epistemic discipline:
+
+- `strict_fact`;
+- `derived_result`;
+- `standard_interpretation`;
+- `heuristic`;
+- `analogy`;
+- `inference`;
+- `speculation`;
+- `learning_strategy`;
+- `wrong`;
+- `open_question`.
+
+### Misconception Recurrence
+
+Repeated boundary errors become durable blockers. They can influence the Learning
+Summary and `Run Next` priority.
+
+### Review Trigger Loop
+
+Review triggers can be:
+
+- `pending`;
+- `completed`;
+- `failed`;
+- `skipped`.
+
+Completed and skipped triggers are ignored by `Run Next`; due pending and failed
+triggers are prioritized.
+
+---
+
+## Model Gateway
+
+AI Learn OS supports OpenAI-compatible providers with three model tiers:
+
+| Tier | Intended Use |
+|---|---|
+| Fast | Lightweight future judgments and cheap checks. |
+| Medium | Structured state writing and unit-close distillation. |
+| Strong | Final teaching answer generation. |
+
+If no provider is configured, the system uses `FakeModelGateway` and deterministic
+fallbacks. Tests never require real API keys.
+
+Environment variables:
+
+```bash
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
+AI_LEARN_FAST_MODEL=gpt-4o-mini
+AI_LEARN_MEDIUM_MODEL=gpt-4.1-mini
+AI_LEARN_STRONG_MODEL=gpt-4.1
+```
+
+Use the diagnostic script:
+
+```bash
+.venv/bin/python scripts/check_ai_path.py
+```
+
+It prints the selected gateway and model names without printing the API key.
+
+---
+
+## Reference Context
+
+References can be added by paste or upload. Text, Markdown, and PDF inputs are
+chunked and stored as reference chunks.
+
+Current alpha behavior:
+
+- deterministic keyword ranking;
+- no embeddings required;
+- relevant chunks enter ContextPack;
+- unit context reuses selected chunks;
+- context packs are not persisted by default unless debug persistence is enabled.
+
+The production data path is designed for PostgreSQL + pgvector, but the local
+runtime works with SQLite.
+
+---
+
+## Tech Stack
 
 | Layer | Stack |
 |---|---|
-| Frontend Target | Next.js App Router, Tailwind CSS, shadcn/ui, Radix UI |
-| Motion | Framer Motion |
+| Current Frontend | React + Vite + TypeScript |
+| Product Frontend Target | Next.js App Router, Tailwind CSS, shadcn/ui, Radix UI |
 | Icons | Lucide Icons |
+| Motion Target | Framer Motion |
 | API | FastAPI-compatible JSON API |
-| Orchestration | Python, Pydantic, deterministic Agent contracts |
+| Orchestration | Python, Pydantic, deterministic agent contracts |
 | Local Runtime | SQLite |
 | Production Data Path | PostgreSQL + pgvector |
-| Background Jobs | Redis |
+| Background Jobs | Redis-ready |
 | Model Gateway | OpenAI-compatible providers, fast / medium / strong tiers |
-| Tests | FakeModelGateway, pytest, frontend typecheck/build |
-
-当前仓库的前端原型仍位于 `web/`，以 React + Vite 运行。UI 和 API 契约已经按 Web-first 产品方向实现；Next.js / shadcn / Framer Motion 是正式产品化前端目标栈。
+| Tests | pytest, FakeModelGateway, frontend typecheck/build |
 
 ---
 
-## 当前能力
+## Current Capabilities
 
-- ChatGPT 式主对话界面；
-- 极简 Top HUD；
-- 浮动 Smart Input；
-- 空输入 `Run Next`；
-- 输入态自动变为 Send；
-- `+` 教学方法菜单；
-- 右侧隐藏 Inspector；
-- 多项目；
-- 项目设置与系统设置；
-- Reference 添加、上传与 chunk；
-- `/api/chat` 八 Agent 管线；
-- `/api/run-next` 优先级决策；
-- Learning Unit 创建、复用、刷新与关闭；
-- Context Pack 默认不持久化；
-- State Writer 选择性写回；
-- Claim / Distinction / Temporal Trace / Review Trigger；
-- Knowledge Position 与 Derivation Trust；
-- State update revert；
-- SQLite 本地运行；
-- Postgres + pgvector schema；
-- FakeModelGateway 测试路径。
+- ChatGPT-style main conversation UI;
+- compact Top HUD;
+- floating Smart Input;
+- empty-input `Run Next`;
+- input-state `Send`;
+- hidden `+` teaching-method menu;
+- right-side Inspector;
+- multi-project support;
+- project settings and system settings;
+- CFT demo seed project;
+- reference paste, upload, and chunking;
+- `/api/chat` 8-agent pipeline;
+- `/api/run-next` priority routing;
+- Learning Unit creation, reuse, refresh, close, and close-time distillation;
+- Context Pack runtime usage with optional debug persistence;
+- selective State Writer writeback;
+- Claim, Distinction, Temporal Trace, Review Trigger records;
+- Knowledge Position and Derivation Trust records;
+- No-AI, derivation, distinction, claim, misconception, and review assessment;
+- State update revert;
+- SQLite local runtime;
+- PostgreSQL + pgvector schema documentation;
+- FakeModelGateway test path;
+- OpenAI-compatible provider path.
 
 ---
 
-## 快速开始
+## Quickstart
 
-### 1. 安装后端依赖
+### 1. Install Python Dependencies
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install ".[dev]"
 ```
 
-确认 `learn` 命令可用：
+Confirm that the CLI works:
 
 ```bash
 .venv/bin/learn --help
 ```
 
-如果你正在做源码开发，可以使用 editable install：
+For source development, editable install is also available:
 
 ```bash
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-若本地 Python/venv 没有正确处理 editable `.pth`，直接用源码路径启动：
+If your local Python or venv does not process editable `.pth` files correctly,
+use the source-path fallback:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev
 ```
 
-### 2. 配置模型 Provider
+### 2. Configure an AI Provider
 
-没有 API key 时，系统会走 `FakeModelGateway` / deterministic fallback，适合本地测试和 CI。
+Without an API key, the system runs with `FakeModelGateway` and deterministic
+fallbacks. This is enough for local smoke tests and CI.
 
-要启用真实 OpenAI-compatible provider，在本地 shell 或 `.env` 中配置：
+To enable a real OpenAI-compatible provider:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
@@ -322,47 +452,58 @@ export AI_LEARN_MEDIUM_MODEL="gpt-4.1-mini"
 export AI_LEARN_STRONG_MODEL="gpt-4.1"
 ```
 
-不要提交 `.env` 或任何真实密钥。可用下面的诊断脚本确认当前路径：
+Do not commit `.env` or real API keys.
+
+Check the selected gateway:
 
 ```bash
 .venv/bin/python scripts/check_ai_path.py
 ```
 
-### 3. 启动数据库服务
+### 3. Optional: Start PostgreSQL and Redis
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-本地开发也可以直接使用 SQLite fallback：
+Local development can also use the SQLite fallback:
 
 ```text
 data/ai_learn_os.sqlite3
 ```
 
-### 4. 启动 API + Web
+### 4. Build and Run the App
 
-```bash
-.venv/bin/learn ui --dev
-```
-
-默认运行在：
-
-```text
-http://127.0.0.1:8765
-```
-
-这个命令会用当前后端 API 服务已构建的 `web/dist`。首次运行前建议构建前端：
+Build the frontend once:
 
 ```bash
 cd web
 npm install
 npm run build
 cd ..
+```
+
+Start the combined API + Web server:
+
+```bash
 .venv/bin/learn ui --dev
 ```
 
-### 5. 前端开发模式
+Open:
+
+```text
+http://127.0.0.1:8765
+```
+
+### 5. Frontend Development Mode
+
+In one terminal, run the backend:
+
+```bash
+.venv/bin/learn ui --dev
+```
+
+In another terminal, run Vite:
 
 ```bash
 cd web
@@ -370,94 +511,139 @@ npm install
 npm run dev
 ```
 
-打开：
+Open:
 
 ```text
 http://127.0.0.1:5173
 ```
 
-Vite 会将 `/api` 代理到 `127.0.0.1:8765`。
+Vite proxies `/api` to `127.0.0.1:8765`.
 
-如果浏览器提示 `Unknown endpoint` 或 `API returned an empty response`，通常是 8765 上还跑着旧后端进程。停止旧进程后重新运行：
+### 6. Troubleshooting
+
+If the browser reports `Unknown endpoint` or `API returned an empty response`,
+you may still have an old server process running on port `8765`. Stop it and
+restart:
 
 ```bash
 .venv/bin/learn ui --dev
 ```
 
-也可以用当前源码直接启动，避免旧安装包干扰：
+You can also launch directly from the current source tree on another port:
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m ailearn.cli ui --dev --port 8766
 ```
 
-### 6. 创建 CFT Demo 项目
+---
 
-Web 的 Projects 面板底部有 `Create Demo: CFT`，会调用：
+## CFT Demo Project
+
+The Projects tab contains a real `Create Demo: CFT` action. It calls:
 
 ```text
 POST /api/projects/seed/cft
 ```
 
-也可以用脚本创建：
+You can also run the seed script:
 
 ```bash
 .venv/bin/python scripts/seed_cft_learning.py
 ```
 
-推荐第一轮验证问题：
+The demo creates a focused project:
 
 ```text
-为什么 2D CFT 可以描述二阶临界点？
+I want to learn CFT
 ```
 
-然后点击 `Run Next`，打开 Inspector 查看 `Current Blocker / Next Action / Evidence`。
+It includes:
 
-### 7. Alpha Pack Smoke Test
+- Goal Stack;
+- reference chunks;
+- claims;
+- distinctions;
+- knowledge positions;
+- review triggers;
+- derivation trust records.
 
-不需要真实 API key：
+Recommended first question:
+
+```text
+Why can 2D CFT describe a second-order critical point?
+```
+
+Then click `Run Next` and open the Inspector to inspect:
+
+- Current Blocker;
+- Next Action;
+- Evidence.
+
+---
+
+## Alpha Pack Smoke Test
+
+No real API key is required:
 
 ```bash
 .venv/bin/python scripts/smoke_alpha_pack.py
 ```
 
-它会用临时 SQLite DB 验证数据库初始化、CFT seed、`/api/chat`、`/api/run-next`、`learning-summary` 与 Reference chunk 进入 ContextPack。
+The smoke script uses a temporary SQLite database and verifies:
+
+- database initialization;
+- CFT seed project;
+- `/api/chat`;
+- `/api/run-next`;
+- `/api/projects/:id/learning-summary`;
+- reference chunks entering ContextPack.
 
 ---
 
-## API 一览
+## API Overview
 
-核心端点：
+Core endpoints:
 
 ```text
 POST /api/chat
 POST /api/run-next
+
 GET  /api/projects
 POST /api/projects
 POST /api/projects/seed/cft
 GET  /api/projects/:id
 PATCH /api/projects/:id
+
 GET  /api/projects/:id/settings
 PATCH /api/projects/:id/settings
 GET  /api/system-settings
 PATCH /api/system-settings
+
 GET  /api/projects/:id/state
 GET  /api/projects/:id/learning-summary
+
 POST /api/projects/:id/references
 POST /api/projects/:id/references/upload
 GET  /api/projects/:id/references
+GET  /api/references/:id/chunks
+
+GET  /api/projects/:id/learning-units/active
+GET  /api/projects/:id/learning-units
 POST /api/projects/:id/learning-units/:unit_id/close
 POST /api/projects/:id/learning-units/:unit_id/refresh-context
+
 POST /api/review-triggers/:id/complete
 POST /api/review-triggers/:id/fail
 POST /api/review-triggers/:id/skip
+
 POST /api/state-updates/:id/revert
 ```
 
-详见 [docs/api.md](docs/api.md)。
+See [docs/api.md](docs/api.md) for details.
 
 ---
 
-## 开发检查
+## Development Checks
 
 ```bash
 .venv/bin/python -m compileall src
@@ -466,57 +652,71 @@ cd web && npm run typecheck
 cd web && npm run build
 ```
 
-测试不需要真实模型 key。所有核心路径使用 `FakeModelGateway`。
+Tests use `FakeModelGateway` and do not require real model credentials.
 
 ---
 
-## 路线图
+## Documentation
 
-### v0.1 — MVP Prototype
-
-- Web/API-first ChatGPT 式学习界面；
-- `/api/chat` 八 Agent 管线；
-- `/api/run-next` 自动选择下一步；
-- State Writer 写回 Claim、Distinction、Temporal Trace、Review Trigger；
-- Context Pack debug persistence；
-- FakeModelGateway 测试闭环。
-
-### v0.2 — Multi-project Learning OS
-
-- 多项目管理；
-- 项目切换；
-- 项目设置与系统设置；
-- Reference 管理；
-- Review Trigger；
-- Knowledge Position；
-- Learning Unit 上下文复用。
-
-### v0.3 — Trust & Internalization
-
-- Derivation Trust；
-- No-AI Reconstruction Test；
-- A0-A4 内化等级；
-- Flawed Interpretation Critic；
-- 反复误区追踪；
-- 单元关闭时的更强状态蒸馏。
-
-### v0.4 — Research Extension
-
-- Research Question；
-- Hypothesis；
-- Evidence；
-- Competing Explanation；
-- Advisor Feedback；
-- Next Experiment；
-- Project Report Generator。
+- [Architecture](docs/architecture.md)
+- [Agent Contracts](docs/agent_contracts.md)
+- [API](docs/api.md)
+- [Database](docs/database.md)
+- [Alpha Feature Audit](docs/alpha_feature_audit.md)
+- [Reference RAG Alpha](docs/reference_rag_alpha.md)
+- [UI Action Audit](docs/ui_action_audit.md)
+- [Frontend Structure Gap Report](docs/frontend_structure_gap_report.md)
+- [Pack Readiness](docs/pack_readiness.md)
 
 ---
 
-## 项目原则
+## Roadmap
 
-AI Learn OS 不追求把 AI 变成替代学习者的机器。
+### v0.1 - MVP Prototype
 
-它追求的是一种更严格的学习制度：
+- Web/API-first ChatGPT-style learning interface;
+- `/api/chat` 8-agent pipeline;
+- `/api/run-next` automatic next-action routing;
+- State Writer for Claim, Distinction, Temporal Trace, and Review Trigger;
+- optional debug Context Pack persistence;
+- FakeModelGateway test loop.
+
+### v0.2 - Multi-Project Learning OS
+
+- multi-project management;
+- project switching;
+- project settings and system settings;
+- reference management;
+- review triggers;
+- knowledge positions;
+- Learning Unit context reuse.
+
+### v0.3 - Trust and Internalization
+
+- Derivation Trust;
+- No-AI Reconstruction Test;
+- A0-A4 internalization levels;
+- Flawed Interpretation Critic;
+- recurring misconception tracking;
+- stronger unit-close distillation.
+
+### v0.4 - Research Extension
+
+- Research Question;
+- Hypothesis;
+- Evidence;
+- Competing Explanation;
+- Advisor Feedback;
+- Next Experiment;
+- Project Report Generator.
+
+---
+
+## Project Principles
+
+AI Learn OS is not trying to replace the learner.
+
+It is trying to enforce a stricter learning discipline:
 
 ```text
 AI handles complexity.
@@ -525,8 +725,10 @@ Durable memory stores evidence.
 Understanding must be reconstructed.
 ```
 
-如果一个结论只是 AI 说过，它不是学习状态。  
-如果一个推导只是 AI 展示过，它不是推导信任。  
-如果一个概念只是被总结过，它还没有进入学习者的头脑。
+If a conclusion was merely stated by AI, it is not learning state.
 
-AI Learn OS 的目标，是让 AI 的能力服务于人的判断，而不是吞没人的判断。
+If a derivation was merely shown by AI, it is not derivation trust.
+
+If a concept was merely summarized, it has not yet entered the learner's head.
+
+AI Learn OS exists to make AI serve human judgment, not erase it.
