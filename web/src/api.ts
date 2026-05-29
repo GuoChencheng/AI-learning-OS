@@ -6,6 +6,7 @@ import type {
   ChatRequest,
   ChatResponse,
   LearningUnit,
+  LearningSummaryPayload,
   LearningStatePayload,
   LearningUnitContextStatus,
   MessageMetadata,
@@ -68,6 +69,7 @@ export const api = {
   updateSystemSettings: (body: Partial<SystemSettings>) =>
     request<SystemSettings>("/api/system-settings", { method: "PATCH", body: JSON.stringify(body) }),
   state: (id: string) => request<LearningStatePayload>(`/api/projects/${id}/state`),
+  learningSummary: (id: string) => request<LearningSummaryPayload>(`/api/projects/${id}/learning-summary`),
   activeLearningUnit: (projectId: string) => request<ApiItem<LearningUnit | null>>(`/api/projects/${projectId}/learning-units/active`),
   learningUnits: (projectId: string) => request<ApiList<LearningUnit>>(`/api/projects/${projectId}/learning-units`),
   closeLearningUnit: (projectId: string, unitId: string) =>
@@ -77,6 +79,12 @@ export const api = {
   claims: (id: string) => request<ApiList>(`/api/projects/${id}/claims`),
   distinctions: (id: string) => request<ApiList>(`/api/projects/${id}/distinctions`),
   reviewTriggers: (id: string) => request<ApiList>(`/api/projects/${id}/review-triggers`),
+  completeReviewTrigger: (id: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/review-triggers/${id}/complete`, { method: "POST", body: JSON.stringify(body) }),
+  failReviewTrigger: (id: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/review-triggers/${id}/fail`, { method: "POST", body: JSON.stringify(body) }),
+  skipReviewTrigger: (id: string, body: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/api/review-triggers/${id}/skip`, { method: "POST", body: JSON.stringify(body) }),
   knowledgePositions: (id: string) => request<ApiList>(`/api/projects/${id}/knowledge-positions`),
   references: (id: string) => request<ApiList<ReferenceEntry>>(`/api/projects/${id}/references`),
   createReference: (projectId: string, body: Record<string, unknown>) =>

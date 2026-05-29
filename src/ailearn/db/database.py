@@ -31,6 +31,28 @@ class Database:
     def init(self) -> None:
         with self.connect() as connection:
             connection.executescript(SQLITE_SCHEMA)
+            _migrate_sqlite(connection)
+
+
+def _migrate_sqlite(connection: sqlite3.Connection) -> None:
+    def ensure_column(table: str, column: str, definition: str) -> None:
+        existing = {row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in existing:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    ensure_column("knowledge_positions", "last_assessed_at", "TEXT")
+    ensure_column("knowledge_positions", "last_assessment_result", "TEXT")
+    ensure_column("knowledge_positions", "assessment_evidence", "TEXT")
+    ensure_column("derivation_trust_records", "trust_status", "TEXT NOT NULL DEFAULT 'untrusted'")
+    ensure_column("derivation_trust_records", "last_step_assessment", "TEXT")
+    ensure_column("distinctions", "status", "TEXT NOT NULL DEFAULT 'needs_test'")
+    ensure_column("distinctions", "confusion_count", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column("distinctions", "last_test_result", "TEXT")
+    ensure_column("distinctions", "next_distinction_test_at", "TEXT")
+    ensure_column("review_triggers", "completed_at", "TEXT")
+    ensure_column("review_triggers", "result_evidence", "TEXT")
+    ensure_column("review_triggers", "failure_reason", "TEXT")
+    ensure_column("review_triggers", "next_retry_time", "TEXT")
 
 
 SQLITE_SCHEMA = """
@@ -185,6 +207,10 @@ CREATE TABLE IF NOT EXISTS distinctions (
   common_confusion TEXT NOT NULL,
   example TEXT NOT NULL,
   test_question TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'needs_test',
+  confusion_count INTEGER NOT NULL DEFAULT 0,
+  last_test_result TEXT,
+  next_distinction_test_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -207,6 +233,9 @@ CREATE TABLE IF NOT EXISTS knowledge_positions (
   target_level TEXT NOT NULL,
   current_level TEXT NOT NULL,
   review_needed INTEGER NOT NULL DEFAULT 1,
+  last_assessed_at TEXT,
+  last_assessment_result TEXT,
+  assessment_evidence TEXT,
   updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS epistemic_marks (
@@ -230,6 +259,8 @@ CREATE TABLE IF NOT EXISTS derivation_trust_records (
   failure_conditions TEXT NOT NULL DEFAULT '[]',
   no_ai_reconstruction_status TEXT NOT NULL DEFAULT 'not_started',
   next_rederive_time TEXT,
+  trust_status TEXT NOT NULL DEFAULT 'untrusted',
+  last_step_assessment TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -242,7 +273,26 @@ CREATE TABLE IF NOT EXISTS review_triggers (
   scheduled_time TEXT NOT NULL,
   success_criteria TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
+  completed_at TEXT,
+  result_evidence TEXT,
+  failure_reason TEXT,
+  next_retry_time TEXT,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS misconception_records (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  misconception_key TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  related_claim_ids_json TEXT NOT NULL DEFAULT '[]',
+  related_distinction_ids_json TEXT NOT NULL DEFAULT '[]',
+  recurrence_count INTEGER NOT NULL DEFAULT 1,
+  severity TEXT NOT NULL DEFAULT 'medium',
+  status TEXT NOT NULL DEFAULT 'active',
+  evidence_text TEXT NOT NULL DEFAULT '',
+  next_action TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS module_runs (
   id TEXT PRIMARY KEY,

@@ -100,6 +100,8 @@ class AILearnOSApp:
 
         if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "state" and method == "GET":
             return 200, self.repository.project_state(parts[2])
+        if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "learning-summary" and method == "GET":
+            return 200, self.repository.project_learning_summary(parts[2])
         if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] in {
             "claims",
             "distinctions",
@@ -120,6 +122,24 @@ class AILearnOSApp:
                 return 200, {"items": items}
             if method == "POST" and table == "review_triggers":
                 return 200, self.repository.create_review_trigger(parts[2], payload)
+
+        if len(parts) == 4 and parts[:2] == ["api", "review-triggers"] and method == "POST":
+            trigger_id = parts[2]
+            if parts[3] == "complete":
+                return 200, self.repository.complete_review_trigger(
+                    trigger_id,
+                    payload.get("evidence_text", ""),
+                    payload.get("result_note", ""),
+                )
+            if parts[3] == "fail":
+                return 200, self.repository.fail_review_trigger(
+                    trigger_id,
+                    payload.get("evidence_text", ""),
+                    payload.get("failure_reason", ""),
+                    payload.get("next_retry_time"),
+                )
+            if parts[3] == "skip":
+                return 200, self.repository.skip_review_trigger(trigger_id, payload.get("evidence_text", payload.get("reason", "")))
 
         if len(parts) == 4 and parts[:2] == ["api", "projects"] and parts[3] == "references":
             project_id = parts[2]

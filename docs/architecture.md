@@ -1,6 +1,6 @@
 # Architecture
 
-AI Learn OS uses seven layers.
+AI Learn OS uses seven product layers plus an assessment service layer.
 
 1. Frontend UI: React/Vite ChatGPT-style shell with auto method selection, collapsed manual teaching tools, run-next, project switcher, and hidden state/settings drawer.
 2. API Gateway: `/api/*` JSON endpoints. The local runtime currently exposes a lightweight app object and is dependency-ready for FastAPI deployment.
@@ -9,6 +9,7 @@ AI Learn OS uses seven layers.
 5. Data Layer: SQLite local runtime plus Postgres/pgvector schema for production.
 6. Model Gateway: fast / medium / strong tiers, `FakeModelGateway` for tests, OpenAI-compatible gateway for configured providers.
 7. State Update Layer: `StateWriterService` writes claims, distinctions, traces, review triggers, unit-close distillation output, and reversible update logs.
+8. Assessment Layer: deterministic/model-optional evaluators score no-AI reconstruction, derivation trust, distinction tests, claim epistemic status, misconception recurrence, and review-trigger outcomes.
 
 ## Model Tiers
 
@@ -29,6 +30,19 @@ The durable database stores learner-side state: raw user messages, user-originat
 `ContextPack` is still a runtime object, but `context_packs` persistence is disabled by default. Set `AI_LEARN_DEBUG_PERSIST_CONTEXT=1` only when debug/audit persistence is needed.
 
 The post-turn State Writer acts as a learner-state distiller. It separates `user_originated_updates`, `ai_only_observations`, and `discarded_ephemeral_judgments`; only user-originated updates are applied to durable learning state by default.
+
+## Learning Assessment Loop
+
+AI Learn OS does not merely record that learning happened. It evaluates whether the learner demonstrated evidence:
+
+- No-AI reconstruction is scored A0-A4, with A4 reserved for delayed review success.
+- Derivation trust updates `done_by_user`, `hinted_by_ai`, and `untrusted_steps` separately.
+- Distinctions move through `needs_test`, `partially_clear`, `clear`, `failed`, and `needs_retest`.
+- Claims are marked as fact, inference, analogy, learning strategy, wrong, or open question according to user-side evidence.
+- Recurring misconceptions are tracked as durable learner blockers.
+- Review triggers can be completed, failed, or skipped, and Run Next ignores completed/skipped triggers.
+
+These assessments are still computation until grounded in user evidence. Durable changes are written through repository methods and `state_update_logs`, preserving source evidence and allowing later reversal.
 
 ## Learning Unit Context
 

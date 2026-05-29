@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS claims (
   confidence real NOT NULL,
   correction text,
   source_message_id text REFERENCES messages(id),
-  status text NOT NULL CHECK (status IN ('active', 'revised', 'deprecated')),
+  status text NOT NULL CHECK (status IN ('active', 'revised', 'deprecated', 'verified', 'misleading', 'wrong', 'open_question')),
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL
 );
@@ -163,6 +163,10 @@ CREATE TABLE IF NOT EXISTS distinctions (
   common_confusion text NOT NULL,
   example text NOT NULL,
   test_question text NOT NULL,
+  status text NOT NULL DEFAULT 'needs_test' CHECK (status IN ('needs_test', 'partially_clear', 'clear', 'failed', 'needs_retest')),
+  confusion_count integer NOT NULL DEFAULT 0,
+  last_test_result text,
+  next_distinction_test_at timestamptz,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL
 );
@@ -187,6 +191,9 @@ CREATE TABLE IF NOT EXISTS knowledge_positions (
   target_level text NOT NULL,
   current_level text NOT NULL,
   review_needed boolean NOT NULL,
+  last_assessed_at timestamptz,
+  last_assessment_result text CHECK (last_assessment_result IS NULL OR last_assessment_result IN ('passed', 'partial', 'failed', 'skipped')),
+  assessment_evidence text,
   updated_at timestamptz NOT NULL
 );
 
@@ -212,6 +219,8 @@ CREATE TABLE IF NOT EXISTS derivation_trust_records (
   failure_conditions jsonb NOT NULL DEFAULT '[]',
   no_ai_reconstruction_status text NOT NULL DEFAULT 'not_started',
   next_rederive_time timestamptz,
+  trust_status text NOT NULL DEFAULT 'untrusted',
+  last_step_assessment text,
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL
 );
@@ -224,8 +233,28 @@ CREATE TABLE IF NOT EXISTS review_triggers (
   review_type text NOT NULL CHECK (review_type IN ('explain', 'distinguish', 'derive', 'transfer', 'error_check')),
   scheduled_time timestamptz NOT NULL,
   success_criteria text NOT NULL,
-  status text NOT NULL CHECK (status IN ('pending', 'completed', 'skipped')),
+  status text NOT NULL CHECK (status IN ('pending', 'completed', 'failed', 'skipped')),
+  completed_at timestamptz,
+  result_evidence text,
+  failure_reason text,
+  next_retry_time timestamptz,
   created_at timestamptz NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS misconception_records (
+  id text PRIMARY KEY,
+  project_id text NOT NULL REFERENCES projects(id),
+  misconception_key text NOT NULL,
+  statement text NOT NULL,
+  related_claim_ids_json jsonb NOT NULL DEFAULT '[]',
+  related_distinction_ids_json jsonb NOT NULL DEFAULT '[]',
+  recurrence_count integer NOT NULL DEFAULT 1,
+  severity text NOT NULL CHECK (severity IN ('low', 'medium', 'high')),
+  status text NOT NULL CHECK (status IN ('active', 'recurring', 'resolved', 'archived')),
+  evidence_text text NOT NULL DEFAULT '',
+  next_action text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS module_runs (

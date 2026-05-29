@@ -171,6 +171,7 @@ export interface StateUpdates {
   review_triggers?: RecordItem[];
   knowledge_positions?: RecordItem[];
   derivation_trust_records?: RecordItem[];
+  assessments?: Record<string, unknown>;
   log_id?: string;
 }
 
@@ -272,7 +273,47 @@ export interface LearningStatePayload {
   derivation_trust_records: RecordItem[];
   review_triggers: RecordItem[];
   module_runs: RecordItem[];
+  misconception_records?: RecordItem[];
   learning_units?: LearningUnit[];
+}
+
+export interface LearningSummaryBlocker {
+  type: "misconception" | "distinction" | "no_ai" | "derivation" | "review" | "claim" | "none" | string;
+  title: string;
+  reason: string;
+  evidence: string;
+  related_ids: string[];
+}
+
+export interface LearningSummaryNextAction {
+  module: string;
+  label: string;
+  reason: string;
+  expected_user_action: string;
+}
+
+export interface LearningSummaryEvidence {
+  type: "claim" | "distinction" | "review_trigger" | "derivation_trust" | "knowledge_position" | "misconception" | string;
+  id: string;
+  summary: string;
+  status: string;
+  why_it_matters: string;
+}
+
+export interface LearningSummaryCounts {
+  open_claims: number;
+  failed_reviews: number;
+  recurring_misconceptions: number;
+  no_ai_below_A3: number;
+  derivation_trust_gaps: number;
+  distinctions_needing_test: number;
+}
+
+export interface LearningSummaryPayload {
+  current_blocker: LearningSummaryBlocker;
+  primary_next_action: LearningSummaryNextAction;
+  evidence: LearningSummaryEvidence[];
+  counts: LearningSummaryCounts;
 }
 
 export interface ReferenceEntry {

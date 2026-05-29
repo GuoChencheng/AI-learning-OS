@@ -70,10 +70,32 @@ Learning units hold short-lived method context. They are not permanent knowledge
 ## Learning State
 
 - `GET /api/projects/:id/state`
+- `GET /api/projects/:id/learning-summary`
 - `GET /api/projects/:id/claims`
 - `GET /api/projects/:id/distinctions`
 - `GET /api/projects/:id/review-triggers`
 - `GET /api/projects/:id/knowledge-positions`
+
+`GET /api/projects/:id/learning-summary` returns a compact Inspector payload:
+
+```json
+{
+  "current_blocker": {"type": "misconception", "title": "...", "reason": "...", "evidence": "...", "related_ids": []},
+  "primary_next_action": {"module": "flawed_interpretation_critic", "label": "...", "reason": "...", "expected_user_action": "..."},
+  "evidence": [],
+  "counts": {"open_claims": 0, "failed_reviews": 0, "recurring_misconceptions": 0, "no_ai_below_A3": 0, "derivation_trust_gaps": 0, "distinctions_needing_test": 0}
+}
+```
+
+Priority order is due pending/failed review, recurring misconception, no-AI gap below A3, derivation trust gap, distinction needing test, then open/wrong claim.
+
+Review trigger outcome endpoints:
+
+- `POST /api/review-triggers/:id/complete`
+- `POST /api/review-triggers/:id/fail`
+- `POST /api/review-triggers/:id/skip`
+
+Payloads can include `evidence_text`, `result_note`, `failure_reason`, and `next_retry_time`. Completion, failure, and skip are logged as assessment updates; failed reviews can schedule a retry.
 
 ## References
 
