@@ -21,6 +21,8 @@ JSON_FIELDS = {
     "references": {"metadata"},
     "reference_chunks": {"metadata", "embedding"},
     "context_packs": {"known_confusions", "must_respect_constraints"},
+    "learning_units": {"context_snapshot_json"},
+    "learning_unit_turns": {"user_state_signal_json"},
     "derivation_trust_records": {"assumptions", "key_steps", "done_by_user", "hinted_by_ai", "untrusted_steps", "failure_conditions"},
 }
 
@@ -213,6 +215,110 @@ class Repository:
     def add_context_pack(self, project_id: str, message_id: str, pack: dict[str, Any]) -> dict[str, Any]:
         now = now_iso()
         return self._insert("context_packs", {"id": new_id("ctx"), "project_id": project_id, "message_id": message_id, "created_at": now, **pack})
+
+    def get_active_learning_unit(self, project_id: str) -> dict[str, Any] | None:
+        return self._row(
+            "SELECT * FROM learning_units WHERE project_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 1",
+            (project_id,),
+        )
+
+    def create_learning_unit(
+        self,
+        project_id: str,
+        method: str,
+        topic: str,
+        start_message_id: str | None = None,
+        context_snapshot: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = now_iso()
+        return self._insert(
+            "learning_units",
+            {
+                "id": new_id("unit"),
+                "project_id": project_id,
+                "status": "active",
+                "method": method,
+                "topic": topic or "current learning topic",
+                "start_message_id": start_message_id,
+                "last_message_id": start_message_id,
+                "context_snapshot_json": context_snapshot or {},
+                "unit_summary": "",
+                "turn_count": 0,
+                "close_reason": None,
+                "created_at": now,
+                "updated_at": now,
+                "closed_at": None,
+            },
+        )
+
+    def update_learning_unit(self, unit_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+        return self._update("learning_units", unit_id, {**patch, "updated_at": now_iso()})
+
+    def close_learning_unit(self, unit_id: str, reason: str) -> dict[str, Any]:
+        unit = self.get_by_id("learning_units", unit_id)
+        if not unit:
+            raise KeyError(unit_id)
+        summary = unit.get("unit_summary") or f"Closed {unit.get('method', 'learning')} unit on {unit.get('topic', 'current topic')}."
+        return self._update(
+            "learning_units",
+            unit_id,
+            {
+                "status": "closed",
+                "close_reason": reason,
+                "unit_summary": summary,
+                "updated_at": now_iso(),
+                "closed_at": now_iso(),
+            },
+        )
+
+    def add_learning_unit_turn(
+        self,
+        unit_id: str,
+        project_id: str,
+        message_id: str | None,
+        role: str,
+        turn_summary: str,
+        user_state_signal: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = now_iso()
+        turn = self._insert(
+            "learning_unit_turns",
+            {
+                "id": new_id("uturn"),
+                "unit_id": unit_id,
+                "project_id": project_id,
+                "message_id": message_id,
+                "role": role,
+                "turn_summary": turn_summary,
+                "user_state_signal_json": user_state_signal or {},
+                "created_at": now,
+            },
+        )
+        unit = self.get_by_id("learning_units", unit_id)
+        if unit:
+            self._update(
+                "learning_units",
+                unit_id,
+                {
+                    "last_message_id": message_id,
+                    "turn_count": int(unit.get("turn_count") or 0) + 1,
+                    "updated_at": now,
+                },
+            )
+        return turn
+
+    def list_learning_unit_turns(self, unit_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        rows = self._rows(
+            "SELECT * FROM learning_unit_turns WHERE unit_id = ? ORDER BY created_at DESC LIMIT ?",
+            (unit_id, int(limit)),
+        )
+        return list(reversed(rows))
+
+    def list_learning_units(self, project_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        return self._rows(
+            "SELECT * FROM learning_units WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?",
+            (project_id, int(limit)),
+        )
 
     def add_module_run(self, project_id: str, message_id: str | None, module_name: str, input_summary: str, output_summary: str, model_tier: str = "fast", latency_ms: int = 0) -> dict[str, Any]:
         return self._insert(

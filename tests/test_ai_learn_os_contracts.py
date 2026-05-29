@@ -137,6 +137,18 @@ def test_module_router_priority_user_button_project_setting_state_default() -> N
             ModuleRoutingInput(
                 button_action=None,
                 selected_mode="auto",
+                unit_method_override="socratic_questioner",
+                project_default_mode="exercise",
+                state_recommendation="review",
+            )
+        ).module
+        == "socratic_questioner"
+    )
+    assert (
+        router.route(
+            ModuleRoutingInput(
+                button_action=None,
+                selected_mode="auto",
                 project_default_mode="exercise",
                 state_recommendation="review",
             )

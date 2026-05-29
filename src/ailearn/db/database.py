@@ -136,6 +136,32 @@ CREATE TABLE IF NOT EXISTS context_packs (
   ai_permission_boundary TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS learning_units (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  method TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  start_message_id TEXT,
+  last_message_id TEXT,
+  context_snapshot_json TEXT NOT NULL DEFAULT '{}',
+  unit_summary TEXT NOT NULL DEFAULT '',
+  turn_count INTEGER NOT NULL DEFAULT 0,
+  close_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  closed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS learning_unit_turns (
+  id TEXT PRIMARY KEY,
+  unit_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  message_id TEXT,
+  role TEXT NOT NULL,
+  turn_summary TEXT NOT NULL,
+  user_state_signal_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS claims (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,

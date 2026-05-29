@@ -77,6 +77,7 @@ function App() {
   const [input, setInput] = useState("");
   const [activeAction, setActiveAction] = useState<ButtonAction | null>(null);
   const [selectedMode, setSelectedMode] = useState<TeachingMode>("auto");
+  const [methodsOpen, setMethodsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [newProjectName, setNewProjectName] = useState("");
@@ -284,8 +285,17 @@ function App() {
   }
 
   return (
-    <div className="learn-shell">
-      <TeachingRail activeAction={activeAction} onSelect={(action, mode) => { setActiveAction(action); setSelectedMode(mode); }} />
+    <div className={methodsOpen ? "learn-shell methods-open" : "learn-shell"}>
+      <TeachingRail
+        open={methodsOpen}
+        activeAction={activeAction}
+        onToggle={() => setMethodsOpen((value) => !value)}
+        onSelect={(action, mode) => {
+          setActiveAction(action);
+          setSelectedMode(mode);
+          setMethodsOpen(false);
+        }}
+      />
       <main className="chat-surface">
         <TopBar
           projects={projects}
@@ -317,7 +327,6 @@ function App() {
         {error && <div className="error-strip">{error}</div>}
         <Composer
           value={input}
-          selectedMode={selectedMode}
           busy={busy}
           activeAction={activeAction}
           onChange={setInput}
@@ -388,32 +397,43 @@ function TopBar({
 }
 
 function TeachingRail({
+  open,
   activeAction,
+  onToggle,
   onSelect
 }: {
+  open: boolean;
   activeAction: ButtonAction | null;
+  onToggle: () => void;
   onSelect: (action: ButtonAction, mode: TeachingMode) => void;
 }) {
   return (
-    <aside className="teaching-rail" aria-label="教学动作">
-      {actionButtons.map(({ action, mode, label, icon: Icon }) => (
-        <button
-          key={action}
-          className={activeAction === action ? "rail-button active" : "rail-button"}
-          onClick={() => onSelect(action, mode)}
-          title={label}
-        >
-          <Icon size={17} />
-          <span>{label}</span>
-        </button>
-      ))}
+    <aside className={open ? "teaching-rail open" : "teaching-rail"} aria-label="教学动作">
+      <button className="method-toggle" onClick={onToggle} title="教学方法" aria-expanded={open}>
+        <Sparkles size={18} />
+        <span>方法</span>
+      </button>
+      {open && (
+        <div className="rail-actions">
+          {actionButtons.map(({ action, mode, label, icon: Icon }) => (
+            <button
+              key={action}
+              className={activeAction === action ? "rail-button active" : "rail-button"}
+              onClick={() => onSelect(action, mode)}
+              title={label}
+            >
+              <Icon size={17} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </aside>
   );
 }
 
 function Composer({
   value,
-  selectedMode,
   activeAction,
   busy,
   onChange,
@@ -421,7 +441,6 @@ function Composer({
   onRun
 }: {
   value: string;
-  selectedMode: TeachingMode;
   activeAction: ButtonAction | null;
   busy: boolean;
   onChange: (value: string) => void;
@@ -431,7 +450,9 @@ function Composer({
   return (
     <footer className="composer-shell">
       <div className="mode-line">
-        <span>当前模式：{activeAction || selectedMode}</span>
+        <span className={activeAction ? "method-chip manual" : "method-chip"}>
+          {activeAction ? `手动：${labelForAction(activeAction)}` : "自动选择方法"}
+        </span>
       </div>
       <div className="composer">
         <textarea
@@ -457,6 +478,10 @@ function Composer({
       </div>
     </footer>
   );
+}
+
+function labelForAction(action: ButtonAction) {
+  return actionButtons.find((item) => item.action === action)?.label || action;
 }
 
 function RightDrawer(props: {

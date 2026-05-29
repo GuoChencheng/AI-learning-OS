@@ -4,6 +4,7 @@ import type {
   AiRunResponse,
   ChatRequest,
   ChatResponse,
+  LearningUnit,
   LearningStatePayload,
   Project,
   ProjectSettings,
@@ -57,6 +58,12 @@ export const api = {
   updateSystemSettings: (body: Partial<SystemSettings>) =>
     request<SystemSettings>("/api/system-settings", { method: "PATCH", body: JSON.stringify(body) }),
   state: (id: string) => request<LearningStatePayload>(`/api/projects/${id}/state`),
+  activeLearningUnit: (projectId: string) => request<ApiItem<LearningUnit | null>>(`/api/projects/${projectId}/learning-units/active`),
+  learningUnits: (projectId: string) => request<ApiList<LearningUnit>>(`/api/projects/${projectId}/learning-units`),
+  closeLearningUnit: (projectId: string, unitId: string) =>
+    request<LearningUnit>(`/api/projects/${projectId}/learning-units/${unitId}/close`, { method: "POST", body: JSON.stringify({}) }),
+  refreshLearningUnitContext: (projectId: string, unitId: string) =>
+    request<LearningUnit>(`/api/projects/${projectId}/learning-units/${unitId}/refresh-context`, { method: "POST", body: JSON.stringify({}) }),
   claims: (id: string) => request<ApiList>(`/api/projects/${id}/claims`),
   distinctions: (id: string) => request<ApiList>(`/api/projects/${id}/distinctions`),
   reviewTriggers: (id: string) => request<ApiList>(`/api/projects/${id}/review-triggers`),

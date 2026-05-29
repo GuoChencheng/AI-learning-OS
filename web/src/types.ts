@@ -156,6 +156,7 @@ export interface ChatRequest {
 export interface PipelineTrace {
   steps: Array<{ agent: string; output: Record<string, unknown> }>;
   decision?: Record<string, unknown>;
+  learning_unit?: Record<string, unknown>;
   message_ids?: Record<string, string>;
   debug?: Record<string, unknown>;
 }
@@ -175,6 +176,7 @@ export interface ChatResponse {
   suggested_next_action: string;
   pipeline_trace: PipelineTrace;
   state_updates: StateUpdates;
+  active_learning_unit?: LearningUnit | null;
 }
 
 export interface RunNextResponse {
@@ -188,6 +190,24 @@ export interface RunNextResponse {
   why_this_now?: string;
   expected_user_action?: string;
   will_update?: string[];
+  active_learning_unit?: LearningUnit | null;
+}
+
+export interface LearningUnit {
+  id: string;
+  project_id: string;
+  status: "active" | "closed" | "abandoned";
+  method: string;
+  topic: string;
+  start_message_id?: string | null;
+  last_message_id?: string | null;
+  context_snapshot_json: Record<string, unknown>;
+  unit_summary: string;
+  turn_count: number;
+  close_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  closed_at?: string | null;
 }
 
 export interface LearningStatePayload {

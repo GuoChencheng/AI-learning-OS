@@ -18,6 +18,8 @@ The Postgres schema is in [database.sql](database.sql). It includes:
 - `goal_stacks`
 - `messages`
 - `context_packs`
+- `learning_units`
+- `learning_unit_turns`
 - `claims`
 - `distinctions`
 - `temporal_traces`
@@ -36,5 +38,7 @@ The lightweight runtime schema lives in `src/ailearn/db/database.py` and mirrors
 Durable tables store learner-side evidence and state, not every AI intermediate judgment. `messages`, `claims`, `distinctions`, `temporal_traces`, `knowledge_positions`, `derivation_trust_records`, `review_triggers`, `references`, and `state_update_logs` are the primary learning memory.
 
 `context_packs` remains in the schema for debug/audit inspection, but chat turns do not persist context packs by default. Enable `AI_LEARN_DEBUG_PERSIST_CONTEXT=1` only when an audit trail of runtime context selection is needed.
+
+`learning_units` and `learning_unit_turns` store short-lived working context for a continuous teaching method. They let the orchestrator reuse a unit context snapshot across turns. They are not the learner's final memory; durable learning state still lives in claims, distinctions, traces, positions, derivation trust records, review triggers, references, and update logs.
 
 `state_update_logs.payload_json` preserves source metadata for each state write, including source message id, source type, evidence text, durable records created, AI-only observations, and ephemeral judgments that were deliberately discarded.

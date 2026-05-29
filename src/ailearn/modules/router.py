@@ -22,6 +22,7 @@ MODE_TO_MODULE = {
 class ModuleRoutingInput(BaseModel):
     button_action: str | None = None
     selected_mode: str | None = "auto"
+    unit_method_override: str | None = None
     project_default_mode: str | None = None
     state_recommendation: str | None = None
 
@@ -34,6 +35,9 @@ class ModuleRouter:
         elif item.selected_mode and item.selected_mode != "auto":
             key = item.selected_mode
             reason = "User selected mode overrides project defaults."
+        elif item.unit_method_override:
+            key = item.unit_method_override
+            reason = "Active learning unit keeps the current teaching method."
         elif item.project_default_mode:
             key = item.project_default_mode
             reason = "Project setting supplies the default learning action."
@@ -46,4 +50,3 @@ class ModuleRouter:
         module = MODE_TO_MODULE.get(key, key if key in set(MODE_TO_MODULE.values()) else "concept_explainer")
         interaction = "guided_question" if module == "socratic_questioner" else "test_first" if module == "no_ai_reconstruction_tester" else "direct_response"
         return ModuleRouterOutput(module=module, secondary_module="misconception_detector", reason=reason, interaction_mode=interaction)
-

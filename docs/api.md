@@ -10,9 +10,11 @@ All responses are JSON.
 {"project_id":"proj_x","message":"二阶相变处一定是 CFT 吗？","selected_mode":"auto","button_action":null}
 ```
 
-Returns `answer`, `suggested_next_action`, `pipeline_trace`, and `state_updates`.
+Returns `answer`, `suggested_next_action`, `pipeline_trace`, `state_updates`, and optionally `active_learning_unit`.
 
-`pipeline_trace` may include ephemeral context extraction, state judgment, and routing outputs. These are diagnostic computation results, not durable learner memory. Context packs are not persisted unless `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
+`pipeline_trace` may include ephemeral context extraction, state judgment, routing outputs, and learning-unit metadata. These are diagnostic computation results, not durable learner memory. Context packs are not persisted unless `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
+
+Full context extraction runs when a learning unit starts or refreshes. If the active unit is reused, the trace marks `learning_unit.should_run_full_context_extraction=false`.
 
 ## Run Next
 
@@ -29,6 +31,17 @@ Additional backend explainability fields are included for future UI use:
 ```json
 {"priority":"due_review_trigger","loop_step":"review","why_this_now":"...","expected_user_action":"...","will_update":["temporal_trace"]}
 ```
+
+`/api/run-next` also returns `active_learning_unit` when it creates or continues a learning unit.
+
+## Learning Units
+
+- `GET /api/projects/:id/learning-units/active`
+- `GET /api/projects/:id/learning-units`
+- `POST /api/projects/:id/learning-units/:unit_id/close`
+- `POST /api/projects/:id/learning-units/:unit_id/refresh-context`
+
+Learning units hold short-lived method context. They are not permanent knowledge records. Closing a unit marks it closed and preserves its summary; refreshing marks or updates the context snapshot for the next run.
 
 ## Projects
 
