@@ -5,10 +5,20 @@ AI Learn OS uses seven layers.
 1. Frontend UI: React/Vite ChatGPT-style shell with auto method selection, collapsed manual teaching tools, run-next, project switcher, and hidden state/settings drawer.
 2. API Gateway: `/api/*` JSON endpoints. The local runtime currently exposes a lightweight app object and is dependency-ready for FastAPI deployment.
 3. Orchestrator: `ChatOrchestrator` and `RunNextOrchestrator` enforce the full pipeline and emit traces.
-4. Agent Layer: eight deterministic v0.1 agents with Pydantic JSON contracts.
+4. Agent Layer: eight deterministic v0.1 agents with Pydantic JSON contracts plus model-backed wrappers where configured.
 5. Data Layer: SQLite local runtime plus Postgres/pgvector schema for production.
 6. Model Gateway: fast / medium / strong tiers, `FakeModelGateway` for tests, OpenAI-compatible gateway for configured providers.
-7. State Update Layer: `StateWriterService` writes claims, distinctions, traces, review triggers, and reversible update logs.
+7. State Update Layer: `StateWriterService` writes claims, distinctions, traces, review triggers, unit-close distillation output, and reversible update logs.
+
+## Model Tiers
+
+The deterministic pipeline remains the fallback and all tests run without real API keys. When a real OpenAI-compatible provider is configured, model-backed wrappers use tiers by responsibility:
+
+- Fast: future lightweight intent, context, and status judgments.
+- Medium: structured learner-state writing and learning-unit close distillation.
+- Strong: final teaching answer generation.
+
+`AnswerComposer` uses the strong tier because it produces the learner-facing teaching response. `StateWriter` and the unit close distiller use the medium tier because they produce schema-validated state proposals that are sanitized before persistence. Invalid model output, gateway failure, or missing provider configuration falls back to deterministic agents.
 
 ## Ephemeral Computation vs Durable Memory
 
@@ -27,6 +37,14 @@ Context preprocessing is unit-scoped, not turn-scoped. A learning unit is a shor
 At unit start or explicit refresh, the orchestrator runs full context extraction and stores a compact `context_snapshot_json` on the learning unit. Subsequent turns reuse that snapshot plus recent `learning_unit_turns`, so they do not scan all project state again unless the unit closes, switches method, drifts topic, or refreshes.
 
 Learning unit context is working memory, not final learner memory. Durable learner memory is still written by post-turn or unit-close distillation into claims, distinctions, temporal traces, knowledge positions, derivation trust records, review triggers, and update logs.
+
+When a unit closes because the learner asks to end it, a manual method switch occurs, max turns are reached, topic drift is detected, or Run Next jumps to a global priority, the close distiller summarizes the unit and writes only learner-side durable evidence. Low-content units usually produce a temporal trace only.
+
+## Reference Context
+
+References are still durable user-selected sources, but context extraction now includes ranked reference chunks, not just reference titles. The ranking is deterministic in the alpha build: request keywords are matched against chunk text and reference metadata, then the top chunks are formatted into `ContextPack.reference_context`.
+
+Reference chunks enter the runtime ContextPack at learning-unit start or refresh. Reused learning-unit turns keep using the snapshot so references are not re-ranked on every turn.
 
 Manual teaching tools are hidden by default. The learner can expand them to override the automatic method for one turn; conflicting manual overrides close the current unit and start a new one.
 

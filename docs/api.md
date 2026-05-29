@@ -16,6 +16,8 @@ Returns `answer`, `suggested_next_action`, `pipeline_trace`, `state_updates`, an
 
 Full context extraction runs when a learning unit starts or refreshes. If the active unit is reused, the trace marks `learning_unit.should_run_full_context_extraction=false`.
 
+When references are relevant, the runtime context pack contains ranked reference chunk excerpts in `reference_context`. If debug context persistence is enabled, those excerpts are visible in the persisted `context_packs` row; otherwise they remain in the trace and learning-unit snapshot only.
+
 ## Run Next
 
 `POST /api/run-next`
@@ -34,6 +36,14 @@ Additional backend explainability fields are included for future UI use:
 
 `/api/run-next` also returns `active_learning_unit` when it creates or continues a learning unit.
 
+With an active learning unit, Run Next may:
+
+- `continue_active_unit` when the unit is still valid;
+- `refresh_active_unit` when the unit snapshot requests refresh;
+- `close_active_unit` when the unit is stale or over turn limit;
+- `jump_to_global_priority` when a due review trigger, repeated misconception, or no-AI gap outranks the active unit;
+- `create_new_unit` when no active unit exists.
+
 ## Learning Units
 
 - `GET /api/projects/:id/learning-units/active`
@@ -41,7 +51,7 @@ Additional backend explainability fields are included for future UI use:
 - `POST /api/projects/:id/learning-units/:unit_id/close`
 - `POST /api/projects/:id/learning-units/:unit_id/refresh-context`
 
-Learning units hold short-lived method context. They are not permanent knowledge records. Closing a unit marks it closed and preserves its summary; refreshing marks or updates the context snapshot for the next run.
+Learning units hold short-lived method context. They are not permanent knowledge records. Closing a unit marks it closed, preserves its summary, and runs close-time state distillation. Refreshing marks or updates the context snapshot for the next run.
 
 ## Projects
 

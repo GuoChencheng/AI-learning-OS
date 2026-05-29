@@ -17,10 +17,12 @@ All agent outputs are Pydantic models in `src/ailearn/agents/contracts.py`.
 ## Context Extractor Agent
 
 ```json
-{"relevant_goals":[],"relevant_references":[],"relevant_claims":[],"relevant_distinctions":[],"recent_traces":[],"active_review_triggers":[]}
+{"relevant_goals":[],"relevant_references":[],"relevant_reference_chunks":[],"relevant_claims":[],"relevant_distinctions":[],"recent_traces":[],"active_review_triggers":[]}
 ```
 
 Context extraction is an ephemeral pre-answer selector. It ranks existing durable records against the current request, but its selection is not durable learner memory.
+
+`relevant_reference_chunks` contains deterministic top chunks selected from user-added references. Each item may include `reference_id`, `title`, `reliability_level`, `scope`, `section_title`, `page_number`, and `chunk_text`. These chunks feed the runtime ContextPack and learning-unit snapshot; they are not a new permanent knowledge graph.
 
 ## Context Pack Builder Agent
 
@@ -54,6 +56,8 @@ Routing priority is manual button, explicit selected mode, active learning unit 
 {"answer":"...","exercise":null,"follow_up_question":null,"suggested_next_action":"..."}
 ```
 
+When a real provider is configured, `ModelBackedAnswerComposerAgent` calls the strong model tier for final teaching answers. The prompt includes the selected module, ContextPack, StateJudge output, active learning-unit metadata, settings, and reference chunks. Invalid output or gateway failure falls back to the deterministic composer.
+
 ## State Writer Agent
 
 ```json
@@ -61,3 +65,9 @@ Routing priority is manual button, explicit selected mode, active learning unit 
 ```
 
 State Writer is a post-turn learner-state distiller. It always records a temporal trace for normal chat, then writes claims, distinctions, review triggers, knowledge positions, or derivation trust records only when the user message or chosen teaching action provides learner-side evidence.
+
+`ModelBackedStateWriterAgent` can call the medium tier for structured state proposals. The output is validated against `StateWriterOutput` and sanitized before persistence so greetings, operational messages, ordinary explanations, and AI-only hypotheses do not become durable memory.
+
+## Learning Unit Close Distiller
+
+Learning-unit close distillation reuses `StateWriterOutput` as its durable-write contract. It gathers the unit, context snapshot, recent turns, method, topic, and close reason; then it writes a summary plus learner-side updates when evidence exists. Medium-tier model output is optional and deterministic fallback remains authoritative for tests.

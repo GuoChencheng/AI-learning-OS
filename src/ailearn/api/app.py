@@ -9,6 +9,7 @@ from ailearn.db.database import Database
 from ailearn.db.repository import Repository
 from ailearn.model_gateway.base import ModelGateway
 from ailearn.model_gateway.fake import FakeModelGateway
+from ailearn.model_gateway.factory import create_model_gateway_from_env
 from ailearn.orchestrator.chat_orchestrator import ChatOrchestrator
 from ailearn.orchestrator.run_next_orchestrator import RunNextOrchestrator
 from ailearn.references.chunking import chunk_text
@@ -147,7 +148,7 @@ class AILearnOSApp:
 def create_core_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> AILearnOSApp:
     db = database or Database(os.getenv("AI_LEARN_DATABASE_URL", "sqlite:///data/ai_learn_os.sqlite3"))
     db.init()
-    return AILearnOSApp(db, model_gateway=model_gateway)
+    return AILearnOSApp(db, model_gateway=model_gateway or create_model_gateway_from_env())
 
 
 def create_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> Any:

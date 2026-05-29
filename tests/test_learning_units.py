@@ -117,7 +117,7 @@ def test_run_next_creates_or_continues_learning_unit(tmp_path: Path) -> None:
 
     second = client.post("/api/run-next", json={"project_id": project["id"]}).json()
     assert second["active_learning_unit"]["id"] == first["active_learning_unit"]["id"]
-    assert second["pipeline_trace"]["learning_unit"]["action"] == "reuse_active_unit"
+    assert second["pipeline_trace"]["learning_unit"]["action"] == "continue_active_unit"
     assert repo.get_active_learning_unit(project["id"])["id"] == first["active_learning_unit"]["id"]
 
 

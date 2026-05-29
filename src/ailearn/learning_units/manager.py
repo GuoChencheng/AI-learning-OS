@@ -15,6 +15,8 @@ class LearningUnitDecision:
     should_run_full_context_extraction: bool
     method_override: str | None
     topic: str
+    close_unit_id: str | None = None
+    close_reason: str | None = None
 
 
 class LearningUnitManager:
@@ -41,10 +43,11 @@ class LearningUnitManager:
                 should_run_full_context_extraction=False,
                 method_override=active.get("method"),
                 topic=active.get("topic") or topic,
+                close_unit_id=active["id"],
+                close_reason="user_requested_close",
             )
 
         if active and manual_method and manual_method != active.get("method"):
-            repository.close_learning_unit(active["id"], "manual_method_switch")
             return LearningUnitDecision(
                 action="close_and_create_new",
                 unit_id=None,
@@ -52,6 +55,8 @@ class LearningUnitManager:
                 should_run_full_context_extraction=True,
                 method_override=manual_method,
                 topic=topic,
+                close_unit_id=active["id"],
+                close_reason="manual_method_switch",
             )
 
         if not active:
@@ -76,7 +81,6 @@ class LearningUnitManager:
             )
 
         if int(active.get("turn_count") or 0) >= self.max_turns:
-            repository.close_learning_unit(active["id"], "max_turns_reached")
             return LearningUnitDecision(
                 action="close_and_create_new",
                 unit_id=None,
@@ -84,10 +88,11 @@ class LearningUnitManager:
                 should_run_full_context_extraction=True,
                 method_override=manual_method or active.get("method"),
                 topic=topic,
+                close_unit_id=active["id"],
+                close_reason="max_turns_reached",
             )
 
         if _topic_drift_high(active.get("topic", ""), user_message):
-            repository.close_learning_unit(active["id"], "topic_drift")
             return LearningUnitDecision(
                 action="close_and_create_new",
                 unit_id=None,
@@ -95,6 +100,8 @@ class LearningUnitManager:
                 should_run_full_context_extraction=True,
                 method_override=manual_method,
                 topic=topic,
+                close_unit_id=active["id"],
+                close_reason="topic_drift",
             )
 
         return LearningUnitDecision(

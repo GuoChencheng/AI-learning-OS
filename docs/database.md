@@ -41,4 +41,8 @@ Durable tables store learner-side evidence and state, not every AI intermediate 
 
 `learning_units` and `learning_unit_turns` store short-lived working context for a continuous teaching method. They let the orchestrator reuse a unit context snapshot across turns. They are not the learner's final memory; durable learning state still lives in claims, distinctions, traces, positions, derivation trust records, review triggers, references, and update logs.
 
+Reference chunks are stored in `reference_chunks` and can be selected into a runtime ContextPack by deterministic ranking. The selected chunk excerpts are copied into `learning_units.context_snapshot_json` only as working context for the active unit.
+
+Learning-unit close distillation writes through the same state-update path as normal StateWriter output. The resulting `state_update_logs.payload_json` includes `source_type=system_trace`, the unit close evidence string, and the durable records created from learner-side evidence.
+
 `state_update_logs.payload_json` preserves source metadata for each state write, including source message id, source type, evidence text, durable records created, AI-only observations, and ephemeral judgments that were deliberately discarded.

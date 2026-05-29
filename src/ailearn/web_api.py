@@ -786,10 +786,9 @@ def handle_api_request(
         if _is_new_api_route(parts):
             from .api.app import create_core_app
             from .db.database import Database
-            from .model_gateway.fake import FakeModelGateway
 
             database = Database(f"sqlite:///{base / 'data' / 'ai_learn_os.sqlite3'}")
-            status, data = create_core_app(database=database, model_gateway=FakeModelGateway()).handle(method, parsed.path, body)
+            status, data = create_core_app(database=database).handle(method, parsed.path, body)
             return ApiResponse(status, data if isinstance(data, dict) else {"items": data})
         if parts == ["api", "dashboard"] and method == "GET":
             status = project_status(base)
