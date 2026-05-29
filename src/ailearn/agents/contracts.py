@@ -69,6 +69,7 @@ class ProjectResolverOutput(ContractModel):
 class ContextExtractorOutput(ContractModel):
     relevant_goals: list[dict[str, Any]]
     relevant_references: list[dict[str, Any]]
+    relevant_reference_chunks: list[dict[str, Any]] = Field(default_factory=list)
     relevant_claims: list[dict[str, Any]]
     relevant_distinctions: list[dict[str, Any]]
     recent_traces: list[dict[str, Any]]

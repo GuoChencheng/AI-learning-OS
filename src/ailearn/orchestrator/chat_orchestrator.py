@@ -5,16 +5,16 @@ from time import perf_counter
 from typing import Any
 
 from ailearn.agents.contracts import ContextExtractorOutput
+from ailearn.agents.model_backed import ModelBackedAnswerComposerAgent, ModelBackedStateWriterAgent
 from ailearn.agents.deterministic import (
-    AnswerComposerAgent,
     ContextExtractorAgent,
     ContextPackBuilderAgent,
     ProjectResolverAgent,
     RequestIntakeAgent,
     StateJudgeAgent,
-    StateWriterAgent,
 )
 from ailearn.db.repository import Repository
+from ailearn.learning_units.distiller import LearningUnitCloseDistiller
 from ailearn.learning_units.manager import LearningUnitManager
 from ailearn.model_gateway.base import ModelGateway
 from ailearn.model_gateway.fake import FakeModelGateway
@@ -85,6 +85,15 @@ class ChatOrchestrator:
         )
         trace["steps"].append(_step("module_router", routing))
 
+        close_distillation: dict[str, Any] | None = None
+        if unit_decision.close_unit_id and unit_decision.action != "no_unit":
+            close_distillation = LearningUnitCloseDistiller(self.model_gateway).distill_and_close(
+                project_id,
+                unit_decision.close_unit_id,
+                unit_decision.close_reason or "unit_closed",
+                self.repository,
+            )
+
         if unit_decision.action in {"create_new_unit", "close_and_create_new"}:
             unit = self.repository.create_learning_unit(
                 project_id,
@@ -121,23 +130,50 @@ class ChatOrchestrator:
             )
 
         started = perf_counter()
-        answer = AnswerComposerAgent().run(routing.module, pack, judge)
+        answer = ModelBackedAnswerComposerAgent(self.model_gateway).run(
+            routing.module,
+            pack,
+            judge,
+            active_unit=unit,
+            project_settings=project_settings,
+            system_settings=self.repository.get_system_settings(),
+        )
         latency_ms = int((perf_counter() - started) * 1000)
         assistant_message = self.repository.add_message(project_id, "assistant", answer.answer, selected_mode, button_action)
         if unit:
             self.repository.add_learning_unit_turn(unit["id"], project_id, assistant_message["id"], "assistant", answer.answer[:240], None)
-        self.repository.add_module_run(project_id, user_message["id"], routing.module, message[:240], answer.answer[:240], "fast", latency_ms)
+        self.repository.add_module_run(project_id, user_message["id"], routing.module, message[:240], answer.answer[:240], "strong", latency_ms)
         trace["steps"].append(_step("answer_composer", answer))
 
-        state_writer = StateWriterAgent().run(project_id, message, answer, pack, judge, routing.module, user_message["id"])
+        state_writer = ModelBackedStateWriterAgent(self.model_gateway).run(
+            project_id,
+            message,
+            answer,
+            pack,
+            judge,
+            routing.module,
+            user_message["id"],
+            active_unit=unit,
+        )
         state_updates = StateWriterService(self.repository).apply(project_id, user_message["id"], state_writer)
         trace["steps"].append(_step("state_writer", state_writer))
         trace["message_ids"] = {"user": user_message["id"], "assistant": assistant_message["id"]}
         trace["debug"] = {"context_pack_persisted": context_pack_persisted}
         if unit and unit_decision.action == "no_unit":
-            self.repository.update_learning_unit(unit["id"], {"unit_summary": _summarize_unit_close(unit, message, answer.answer)})
-            unit = self.repository.close_learning_unit(unit["id"], "user_requested_close")
+            close_distillation = LearningUnitCloseDistiller(self.model_gateway).distill_and_close(
+                project_id,
+                unit["id"],
+                unit_decision.close_reason or "user_requested_close",
+                self.repository,
+            )
+            unit = close_distillation["unit"]
         active_unit = self.repository.get_active_learning_unit(project_id)
+        if close_distillation:
+            trace["unit_close_distillation"] = {
+                "unit_id": close_distillation["unit"]["id"],
+                "close_reason": close_distillation["unit"].get("close_reason"),
+                "state_update_log_id": close_distillation["state_updates"].get("log_id"),
+            }
         trace["learning_unit"] = {
             "id": unit["id"] if unit else None,
             "action": unit_decision.action,
@@ -182,6 +218,7 @@ def _extracted_from_unit(unit: dict[str, Any] | None) -> ContextExtractorOutput:
     return ContextExtractorOutput(
         relevant_goals=[],
         relevant_references=[],
+        relevant_reference_chunks=[],
         relevant_claims=[],
         relevant_distinctions=[],
         recent_traces=[],

@@ -15,6 +15,7 @@ The main product is not the old CLI-first YAML workflow. The old CLI can remain 
 - AI automatic teaching-method selection is the default interaction.
 - Manual teaching-method controls are collapsed by default and are one-turn/unit-switch overrides.
 - Context preprocessing is learning-unit scoped: run full extraction at unit start or refresh, then reuse unit context across follow-up turns.
+- Reference context should include ranked reference chunks when relevant, not just reference titles.
 - Agent outputs must be structured Pydantic models.
 - State writes must be traceable in `state_update_logs` and reversible where practical.
 - AI judgments are computation, not memory: context extraction, state judgment, and routing are ephemeral unless explicitly debug-persisted.
@@ -22,8 +23,9 @@ The main product is not the old CLI-first YAML workflow. The old CLI can remain 
 - Context packs are runtime objects by default. Persist them only for debug/audit with `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
 - Learning units store short-lived working context and unit turns. They are not permanent knowledge records.
 - State Writer must distill post-turn learner state and separate `user_originated_updates`, `ai_only_observations`, and `discarded_ephemeral_judgments`.
+- Learning-unit closure must run learner-state distillation when the unit ends, switches method, goes stale, or Run Next jumps to a higher-priority blocker.
 - Tests must use `FakeModelGateway`; do not require real API keys.
-- Model routing must support `fast`, `medium`, and `strong` tiers for OpenAI-compatible providers.
+- Model routing must support `fast`, `medium`, and `strong` tiers for OpenAI-compatible providers. Final answers use `strong`; structured state writing and unit-close distillation use `medium`; all model-backed behavior must keep deterministic fallback.
 - Do not commit API keys, `.env`, `config.yaml`, real learner data, caches, build outputs, or local databases.
 
 ## Learning-State Objects

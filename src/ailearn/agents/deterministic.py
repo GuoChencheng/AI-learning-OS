@@ -80,10 +80,13 @@ class ContextExtractorAgent:
     def run(self, project_id: str, repository: Any, request: str = "") -> ContextExtractorOutput:
         state = repository.project_state(project_id)
         pending_reviews = [item for item in state["review_triggers"] if item.get("status") == "pending"]
+        relevant_references = rank_records(repository.list_references(project_id, limit=20), request, "reference", 5)
+        relevant_chunks = _select_reference_chunks(repository, relevant_references, request)
         return ContextExtractorOutput.model_validate(
             {
                 "relevant_goals": rank_records(repository.list_goal_stacks(project_id, limit=20), request, "goal", 3),
-                "relevant_references": rank_records(repository.list_references(project_id, limit=20), request, "reference", 5),
+                "relevant_references": relevant_references,
+                "relevant_reference_chunks": relevant_chunks,
                 "relevant_claims": rank_records(state["claims"], request, "claim", 5),
                 "relevant_distinctions": rank_records(state["distinctions"], request, "distinction", 5),
                 "recent_traces": rank_records(state["temporal_traces"], request, "temporal_trace", 10),
@@ -100,6 +103,7 @@ class ContextPackBuilderAgent:
             if item.get("concept_a") and item.get("concept_b")
         ]
         reference_titles = [item.get("title", "") for item in extracted.relevant_references if item.get("title")]
+        reference_context = _format_reference_context(extracted.relevant_reference_chunks, reference_titles)
         action = "explain"
         if intake.user_selected_mode in {"compare", "socratic", "derive", "exercise", "critic", "review"}:
             action = intake.user_selected_mode
@@ -109,7 +113,7 @@ class ContextPackBuilderAgent:
             {
                 "current_request": request,
                 "goal_context": "; ".join(item.get("current_focus") or item.get("main_goal", "") for item in extracted.relevant_goals) or "No active goal stack yet.",
-                "reference_context": "; ".join(reference_titles) or "No selected references.",
+                "reference_context": reference_context,
                 "learning_state_context": f"{len(extracted.relevant_claims)} active claims, {len(extracted.relevant_distinctions)} distinctions, {len(extracted.active_review_triggers)} review triggers.",
                 "known_confusions": known_confusions,
                 "must_respect_constraints": [
@@ -429,6 +433,58 @@ def _should_write_derivation_trust(message: str, judge: StateJudgeOutput, module
     if any(marker in lowered for marker in ("derive", "derivation", "prove", "trust")):
         return True
     return judge.record_intensity == "heavy" and judge.learning_state == "ready_for_derivation"
+
+
+def _select_reference_chunks(repository: Any, references: list[dict[str, Any]], request: str) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for reference in references:
+        for chunk in repository.list_reference_chunks(reference["id"]):
+            candidates.append(
+                {
+                    "reference_id": reference["id"],
+                    "title": reference.get("title", ""),
+                    "reliability_level": reference.get("reliability_level", "uncertain"),
+                    "scope": reference.get("scope", ""),
+                    "section_title": chunk.get("section_title"),
+                    "page_number": chunk.get("page_number"),
+                    "chunk_text": str(chunk.get("chunk_text", ""))[:1200],
+                }
+            )
+    ranked = rank_records(candidates, request, "reference_chunk", 6)
+    total = 0
+    selected: list[dict[str, Any]] = []
+    for chunk in ranked:
+        text = chunk.get("chunk_text", "")
+        if total + len(text) > 5000:
+            remaining = max(0, 5000 - total)
+            if remaining <= 80:
+                break
+            chunk = {**chunk, "chunk_text": text[:remaining]}
+            text = chunk["chunk_text"]
+        selected.append(chunk)
+        total += len(text)
+    return selected
+
+
+def _format_reference_context(chunks: list[dict[str, Any]], titles: list[str]) -> str:
+    if not chunks:
+        return "; ".join(titles) or "No selected references."
+    sections: list[str] = []
+    for chunk in chunks:
+        sections.append(
+            "\n".join(
+                [
+                    f"Reference: {chunk.get('title') or chunk.get('reference_id')}",
+                    f"Reliability: {chunk.get('reliability_level', 'uncertain')}",
+                    f"Scope: {chunk.get('scope', '')}",
+                    f"Section: {chunk.get('section_title') or 'unknown'}",
+                    f"Page: {chunk.get('page_number') if chunk.get('page_number') is not None else 'n/a'}",
+                    "Excerpt:",
+                    str(chunk.get("chunk_text", "")),
+                ]
+            )
+        )
+    return "\n\n".join(sections)
 
 
 def _review_reason(module_name: str, distinction_created: bool, judge: StateJudgeOutput) -> str:

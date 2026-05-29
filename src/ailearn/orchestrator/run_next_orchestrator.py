@@ -6,6 +6,7 @@ from typing import Any
 from ailearn.agents.contracts import AnswerComposerOutput, NewTemporalTrace, StateWriterOutput
 from ailearn.agents.deterministic import ContextExtractorAgent, ContextPackBuilderAgent, RequestIntakeAgent
 from ailearn.db.repository import Repository
+from ailearn.learning_units.distiller import LearningUnitCloseDistiller
 from ailearn.model_gateway.base import ModelGateway
 from ailearn.model_gateway.fake import FakeModelGateway
 from ailearn.state_writer.service import StateWriterService
@@ -21,13 +22,49 @@ class RunNextOrchestrator:
         if not project:
             raise KeyError(project_id)
         active_unit = self.repository.get_active_learning_unit(project_id)
-        learning_unit_action = "reuse_active_unit" if active_unit and int(active_unit.get("turn_count") or 0) < 16 else "create_new_unit"
-        if active_unit and learning_unit_action == "reuse_active_unit":
+        global_decision = self._decide(project_id)
+        close_distillation: dict[str, Any] | None = None
+        should_run_full_context_extraction = False
+        learning_unit_reason = "Run Next created a new learning unit."
+
+        if active_unit and _should_jump_to_global_priority(global_decision, active_unit):
+            close_distillation = LearningUnitCloseDistiller(self.model_gateway).distill_and_close(
+                project_id,
+                active_unit["id"],
+                "run_next_global_priority",
+                self.repository,
+            )
+            active_unit = None
+            decision = global_decision
+            learning_unit_action = "jump_to_global_priority"
+            should_run_full_context_extraction = True
+            learning_unit_reason = "Run Next jumped to a higher-priority durable learning-state blocker."
+        elif active_unit and _refresh_requested(active_unit):
+            learning_unit_action = "refresh_active_unit"
             decision = self._continue_unit_decision(active_unit)
+            active_unit = self._refresh_unit_context(project_id, active_unit, decision)
+            should_run_full_context_extraction = True
+            learning_unit_reason = "Run Next refreshed stale working context for the active learning unit."
+        elif active_unit and int(active_unit.get("turn_count") or 0) >= 16:
+            close_distillation = LearningUnitCloseDistiller(self.model_gateway).distill_and_close(
+                project_id,
+                active_unit["id"],
+                "run_next_max_turns",
+                self.repository,
+            )
+            active_unit = None
+            decision = global_decision
+            learning_unit_action = "close_active_unit"
+            should_run_full_context_extraction = True
+            learning_unit_reason = "Run Next closed a stale learning unit and started the next action."
+        elif active_unit:
+            learning_unit_action = "continue_active_unit"
+            decision = self._continue_unit_decision(active_unit)
+            learning_unit_reason = "Run Next continues a valid active learning unit."
         else:
-            if active_unit:
-                self.repository.close_learning_unit(active_unit["id"], "run_next_unit_refresh")
-            decision = self._decide(project_id)
+            learning_unit_action = "create_new_unit"
+            decision = global_decision
+            should_run_full_context_extraction = True
         answer = AnswerComposerOutput(
             answer=decision["answer"],
             exercise=None,
@@ -35,7 +72,7 @@ class RunNextOrchestrator:
             suggested_next_action=decision["next_action"],
         )
         message = self.repository.add_message(project_id, "assistant", answer.answer, "auto", "run_next")
-        if learning_unit_action == "create_new_unit":
+        if learning_unit_action in {"create_new_unit", "jump_to_global_priority", "close_active_unit"}:
             active_unit = self._create_run_next_unit(project_id, message["id"], decision)
         if active_unit:
             self.repository.add_learning_unit_turn(active_unit["id"], project_id, message["id"], "assistant", answer.answer[:240], {"run_next_priority": decision["priority"]})
@@ -81,8 +118,10 @@ class RunNextOrchestrator:
                     "method": active_unit.get("method") if active_unit else decision["chosen_module"],
                     "topic": active_unit.get("topic") if active_unit else decision["reason"],
                     "turn_count": active_unit.get("turn_count", 0) if active_unit else 0,
-                    "should_run_full_context_extraction": learning_unit_action == "create_new_unit",
-                    "reason": "Run Next continues an active learning unit." if learning_unit_action == "reuse_active_unit" else "Run Next created a new learning unit.",
+                    "should_run_full_context_extraction": should_run_full_context_extraction,
+                    "reason": learning_unit_reason,
+                    "closed_unit_id": close_distillation["unit"]["id"] if close_distillation else None,
+                    "close_state_update_log_id": close_distillation["state_updates"].get("log_id") if close_distillation else None,
                 },
             },
             "state_updates": {"temporal_traces": state_updates["temporal_traces"], "log_id": state_updates["log_id"]},
@@ -124,6 +163,25 @@ class RunNextOrchestrator:
                 "context_extractor": extracted.model_dump(mode="json"),
                 "created_from_message_id": message_id,
                 "created_by": "run_next",
+            },
+        )
+
+    def _refresh_unit_context(self, project_id: str, unit: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
+        request = unit.get("topic") or decision["reason"]
+        intake = RequestIntakeAgent().run(request, "auto", "run_next")
+        extracted = ContextExtractorAgent().run(project_id, self.repository, request)
+        pack = ContextPackBuilderAgent().run(request, intake, extracted)
+        existing = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
+        return self.repository.update_learning_unit(
+            unit["id"],
+            {
+                "context_snapshot_json": {
+                    **existing,
+                    "context_pack": pack.model_dump(mode="json"),
+                    "context_extractor": extracted.model_dump(mode="json"),
+                    "refresh_requested": False,
+                    "refreshed_by": "run_next",
+                }
             },
         )
 
@@ -208,3 +266,16 @@ class RunNextOrchestrator:
             "answer": "当前没有到期回看或明显阻滞。建议推进一个新知识点，并同步记录最小 Claim。",
             "next_action": "提出下一个学习问题。",
         }
+
+
+def _refresh_requested(unit: dict[str, Any]) -> bool:
+    snapshot = unit.get("context_snapshot_json") if isinstance(unit.get("context_snapshot_json"), dict) else {}
+    return bool(snapshot.get("refresh_requested"))
+
+
+def _should_jump_to_global_priority(decision: dict[str, Any], active_unit: dict[str, Any]) -> bool:
+    if decision.get("priority") not in {"due_review_trigger", "repeated_misconception", "unverified_no_ai_internalization"}:
+        return False
+    if decision.get("chosen_module") == active_unit.get("method"):
+        return False
+    return True
