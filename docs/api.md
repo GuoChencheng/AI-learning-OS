@@ -12,6 +12,8 @@ All responses are JSON.
 
 Returns `answer`, `suggested_next_action`, `pipeline_trace`, and `state_updates`.
 
+`pipeline_trace` may include ephemeral context extraction, state judgment, and routing outputs. These are diagnostic computation results, not durable learner memory. Context packs are not persisted unless `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
+
 ## Run Next
 
 `POST /api/run-next`
@@ -21,6 +23,12 @@ Returns `answer`, `suggested_next_action`, `pipeline_trace`, and `state_updates`
 ```
 
 Returns the chosen module, reason, answer, pipeline trace, and state updates.
+
+Additional backend explainability fields are included for future UI use:
+
+```json
+{"priority":"due_review_trigger","loop_step":"review","why_this_now":"...","expected_user_action":"...","will_update":["temporal_trace"]}
+```
 
 ## Projects
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from time import perf_counter
 from typing import Any
 
@@ -47,11 +48,13 @@ class ChatOrchestrator:
         project_settings = self.repository.ensure_project_settings(project_id)
         user_message = self.repository.add_message(project_id, "user", message, selected_mode, button_action)
 
-        extracted = ContextExtractorAgent().run(project_id, self.repository)
+        extracted = ContextExtractorAgent().run(project_id, self.repository, message)
         trace["steps"].append(_step("context_extractor", extracted))
 
         pack = ContextPackBuilderAgent().run(message, request_intake, extracted)
-        self.repository.add_context_pack(project_id, user_message["id"], pack.model_dump(mode="json"))
+        context_pack_persisted = _debug_persist_context_enabled()
+        if context_pack_persisted:
+            self.repository.add_context_pack(project_id, user_message["id"], pack.model_dump(mode="json"))
         trace["steps"].append(_step("context_pack_builder", pack))
 
         judge = StateJudgeAgent().run(pack, extracted)
@@ -75,10 +78,11 @@ class ChatOrchestrator:
         self.repository.add_module_run(project_id, user_message["id"], routing.module, message[:240], answer.answer[:240], "fast", latency_ms)
         trace["steps"].append(_step("answer_composer", answer))
 
-        state_writer = StateWriterAgent().run(project_id, message, answer, pack, judge)
+        state_writer = StateWriterAgent().run(project_id, message, answer, pack, judge, routing.module, user_message["id"])
         state_updates = StateWriterService(self.repository).apply(project_id, user_message["id"], state_writer)
         trace["steps"].append(_step("state_writer", state_writer))
         trace["message_ids"] = {"user": user_message["id"], "assistant": assistant_message["id"]}
+        trace["debug"] = {"context_pack_persisted": context_pack_persisted}
 
         return {
             "answer": answer.answer,
@@ -87,7 +91,10 @@ class ChatOrchestrator:
             "state_updates": {
                 "claims": state_updates["claims"],
                 "distinctions": state_updates["distinctions"],
+                "temporal_traces": state_updates["temporal_traces"],
                 "review_triggers": state_updates["review_triggers"],
+                "knowledge_positions": state_updates["knowledge_positions"],
+                "derivation_trust_records": state_updates["derivation_trust_records"],
                 "log_id": state_updates["log_id"],
             },
         }
@@ -96,3 +103,6 @@ class ChatOrchestrator:
 def _step(agent: str, output: Any) -> dict[str, Any]:
     return {"agent": agent, "output": output.model_dump(mode="json") if hasattr(output, "model_dump") else output}
 
+
+def _debug_persist_context_enabled() -> bool:
+    return os.getenv("AI_LEARN_DEBUG_PERSIST_CONTEXT", "").strip().lower() in {"1", "true", "yes", "on"}

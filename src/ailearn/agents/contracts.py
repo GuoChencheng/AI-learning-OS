@@ -36,6 +36,15 @@ EpistemicStatus = Literal[
     "open_question",
 ]
 ReviewType = Literal["explain", "distinguish", "derive", "transfer", "error_check"]
+SourceType = Literal[
+    "user_explicit",
+    "user_question",
+    "user_answer",
+    "user_error",
+    "user_revision",
+    "system_trace",
+    "ai_suggested_draft",
+]
 
 
 class ContractModel(BaseModel):
@@ -153,6 +162,12 @@ class NewReviewTrigger(ContractModel):
     success_criteria: str
 
 
+class SourceMetadata(ContractModel):
+    source_type: SourceType = "system_trace"
+    source_message_id: str | None = None
+    evidence_text: str = ""
+
+
 class StateWriterOutput(ContractModel):
     new_claims: list[NewClaim]
     updated_claims: list[dict[str, Any]]
@@ -162,4 +177,7 @@ class StateWriterOutput(ContractModel):
     derivation_trust_updates: list[DerivationTrustUpdate]
     review_triggers: list[NewReviewTrigger]
     next_recommended_action: str
-
+    source_metadata: SourceMetadata = Field(default_factory=SourceMetadata)
+    user_originated_updates: dict[str, Any] = Field(default_factory=dict)
+    ai_only_observations: dict[str, Any] = Field(default_factory=dict)
+    discarded_ephemeral_judgments: dict[str, Any] = Field(default_factory=dict)
