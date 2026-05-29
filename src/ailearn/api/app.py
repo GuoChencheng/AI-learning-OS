@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from typing import Any
 from urllib.parse import unquote
 
@@ -127,10 +128,14 @@ class AILearnOSApp:
         return 404, {"error": f"Unknown endpoint: {method} {path}"}
 
 
-def create_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> AILearnOSApp:
+def create_core_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> AILearnOSApp:
     db = database or Database(os.getenv("AI_LEARN_DATABASE_URL", "sqlite:///data/ai_learn_os.sqlite3"))
     db.init()
-    core = AILearnOSApp(db, model_gateway=model_gateway)
+    return AILearnOSApp(db, model_gateway=model_gateway)
+
+
+def create_app(database: Database | None = None, model_gateway: ModelGateway | None = None) -> Any:
+    core = create_core_app(database=database, model_gateway=model_gateway)
     try:
         return create_fastapi_app(core)
     except ModuleNotFoundError:
@@ -151,16 +156,43 @@ def create_fastapi_app(core: AILearnOSApp) -> Any:
         allow_headers=["*"],
     )
 
+    async def dispatch(request: Request, api_path: str) -> JSONResponse:
+        payload = await _read_json_payload(request)
+        status, data = core.handle(request.method, f"/api/{api_path}", payload)
+        return JSONResponse(status_code=status, content=data)
+
+    @app.api_route("/api/projects", methods=["GET", "POST", "OPTIONS"])
+    async def projects_route(request: Request) -> JSONResponse:
+        return await dispatch(request, "projects")
+
+    @app.api_route("/api/chat", methods=["POST", "OPTIONS"])
+    async def chat_route(request: Request) -> JSONResponse:
+        return await dispatch(request, "chat")
+
+    @app.api_route("/api/run-next", methods=["POST", "OPTIONS"])
+    async def run_next_route(request: Request) -> JSONResponse:
+        return await dispatch(request, "run-next")
+
+    @app.api_route("/api/system-settings", methods=["GET", "PATCH", "OPTIONS"])
+    async def system_settings_route(request: Request) -> JSONResponse:
+        return await dispatch(request, "system-settings")
+
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"])
     async def api_route(path: str, request: Request) -> JSONResponse:
-        payload: dict[str, Any] = {}
-        if request.method in {"POST", "PATCH", "PUT"}:
-            try:
-                payload = await request.json()
-            except Exception:
-                payload = {}
-        status, data = core.handle(request.method, f"/api/{path}", payload)
-        return JSONResponse(status_code=status, content=data)
+        return await dispatch(request, path)
 
     app.state.ai_learn_core = core
     return app
+
+
+async def _read_json_payload(request: Any) -> dict[str, Any]:
+    if request.method not in {"POST", "PATCH", "PUT"}:
+        return {}
+    body = await request.body()
+    if not body:
+        return {}
+    try:
+        value = json.loads(body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}

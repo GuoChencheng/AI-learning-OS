@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from ailearn.api.app import create_app
 from ailearn.api.testing import TestClient
@@ -13,6 +14,19 @@ def make_client(tmp_path: Path) -> TestClient:
     database.init()
     app = create_app(database=database, model_gateway=FakeModelGateway())
     return TestClient(app)
+
+
+def test_test_client_uses_fastapi_core_state_when_available(tmp_path: Path) -> None:
+    database = Database(f"sqlite:///{tmp_path / 'fastapi-wrapper.sqlite3'}")
+    database.init()
+    app = create_app(database=database, model_gateway=FakeModelGateway())
+    core = getattr(getattr(app, "state", None), "ai_learn_core", app)
+    fastapi_like_wrapper = SimpleNamespace(state=SimpleNamespace(ai_learn_core=core))
+
+    project = TestClient(fastapi_like_wrapper).post("/api/projects", json={"name": "Wrapper"}).json()
+
+    assert project["id"].startswith("proj_")
+    assert project["name"] == "Wrapper"
 
 
 def test_chat_endpoint_runs_full_pipeline_and_writes_state(tmp_path: Path) -> None:

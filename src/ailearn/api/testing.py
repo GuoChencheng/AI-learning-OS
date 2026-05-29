@@ -19,7 +19,8 @@ class TestClient:
     def __init__(self, app: Any) -> None:
         self.app = app
         self._delegate: Any | None = None
-        if not hasattr(app, "handle"):
+        self._core = getattr(getattr(app, "state", None), "ai_learn_core", None)
+        if self._core is None and not hasattr(app, "handle"):
             from fastapi.testclient import TestClient as FastAPITestClient
 
             self._delegate = FastAPITestClient(app)
@@ -46,5 +47,6 @@ class TestClient:
         return self._request("PATCH", path, json or {})
 
     def _request(self, method: str, path: str, payload: dict[str, Any] | None) -> Response:
-        status, data = self.app.handle(method, path, payload or {})
+        target = self._core or self.app
+        status, data = target.handle(method, path, payload or {})
         return Response(status, data)
