@@ -2,843 +2,529 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --color-ink: 8 8 8;
-    --color-muted: 72 72 72;
-    --color-subtle: 116 116 116;
-    --color-paper: 255 255 255;
-    --color-panel: 255 255 255;
-    --color-line: 218 218 218;
-    --color-accent: 8 8 8;
-
-    --color-state-verified: 24 122 73;
-    --color-state-open-loop: 141 90 20;
-    --color-state-trust-gap: 164 79 20;
-    --color-state-overdue: 181 38 28;
-    --state-verified: var(--color-state-verified);
-    --state-open-loop: var(--color-state-open-loop);
-    --state-trust-gap: var(--color-state-trust-gap);
-    --state-overdue: var(--color-state-overdue);
-
-    --font-sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-    --font-display: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "SFMono-Regular", "SF Mono", ui-monospace, monospace;
-
-    --type-header-size: 1.5rem;
-    --type-header-line: 1.16;
-    --type-header-weight: 650;
-    --type-body-size: 0.9375rem;
-    --type-body-line: 1.55;
-    --type-body-weight: 400;
-    --type-meta-size: 0.75rem;
-    --type-meta-line: 1.35;
-    --type-meta-weight: 560;
-
-    --layout-gutter: clamp(1rem, 3vw, 2.5rem);
-    --layout-rail: 240px;
-    --layout-section-gap: clamp(2rem, 5vw, 4.5rem);
-    --layout-grid-gap: 1rem;
-    --layout-field-gap: 0.625rem;
-    --layout-page-max: 1480px;
-    --layout-readable-max: 72ch;
-    --layout-data-max: 1180px;
-    --grid-app: minmax(220px, var(--layout-rail)) minmax(0, 1fr);
-    --grid-cockpit: minmax(0, 0.92fr) minmax(0, 1.08fr);
-    --grid-dashboard-state: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
-
-    --radius-sm: 2px;
-    --radius-md: 4px;
-    --radius-lg: 6px;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
-  html {
-    background: rgb(var(--color-paper));
-    color: rgb(var(--color-ink));
-    font-family: var(--font-sans);
-    font-feature-settings: "cv02", "cv03", "cv04", "kern";
-    text-rendering: geometricPrecision;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    margin: 0;
-    background: rgb(var(--color-paper));
-    color: rgb(var(--color-ink));
-    font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-line);
-    letter-spacing: 0;
-  }
-
-  a {
-    color: inherit;
-  }
-
-  button,
-  input,
-  textarea,
-  select {
-    font: inherit;
-    letter-spacing: 0;
-  }
-
-  button,
-  summary,
-  a {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  ::selection {
-    background: rgb(var(--color-ink));
-    color: rgb(var(--color-paper));
-  }
-
-  :focus-visible {
-    outline: 2px solid rgb(var(--color-accent));
-    outline-offset: 2px;
-  }
+:root {
+  --ink: #171717;
+  --muted: #646464;
+  --subtle: #8a8a8a;
+  --paper: #ffffff;
+  --panel: #f7f7f5;
+  --line: #ddddda;
+  --accent: #0f766e;
+  --accent-strong: #0b5e59;
+  --danger: #b42318;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@layer utilities {
-  .type-header {
-    font-family: var(--font-display);
-    font-size: var(--type-header-size);
-    font-weight: var(--type-header-weight);
-    line-height: var(--type-header-line);
-    letter-spacing: 0;
-  }
-
-  .type-body {
-    font-family: var(--font-sans);
-    font-size: var(--type-body-size);
-    font-weight: var(--type-body-weight);
-    line-height: var(--type-body-line);
-    letter-spacing: 0;
-  }
-
-  .type-meta {
-    color: rgb(var(--color-muted));
-    font-size: var(--type-meta-size);
-    font-weight: var(--type-meta-weight);
-    line-height: var(--type-meta-line);
-    letter-spacing: 0;
-  }
-
-  .layout-page {
-    width: min(100% - (var(--layout-gutter) * 2), var(--layout-page-max));
-    margin-inline: auto;
-  }
-
-  .layout-readable {
-    max-width: var(--layout-readable-max);
-  }
-
-  .layout-section {
-    padding-block: var(--layout-section-gap);
-  }
-
-  .grid-strict {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: var(--layout-grid-gap);
-    align-items: start;
-  }
-
-  .grid-strict > * {
-    min-width: 0;
-  }
-
-  .hairline-top {
-    border-top: 1px solid rgb(var(--color-line));
-  }
-
-  .metadata {
-    color: rgb(var(--color-muted));
-    font-size: var(--type-meta-size);
-    font-weight: var(--type-meta-weight);
-    line-height: var(--type-meta-line);
-  }
+* {
+  box-sizing: border-box;
 }
 
-@layer components {
-  button {
-    @apply inline-flex min-h-9 items-center justify-center gap-2 rounded-sm border border-ink bg-ink px-3 py-1.5 text-meta font-medium text-white shadow-none transition-colors disabled:cursor-not-allowed disabled:opacity-40;
-  }
-
-  button:hover:not(:disabled) {
-    @apply bg-white text-ink;
-  }
-
-  button.secondary,
-  .icon-button {
-    @apply border-line bg-white text-ink shadow-none;
-  }
-
-  button.secondary:hover:not(:disabled),
-  .icon-button:hover:not(:disabled) {
-    @apply border-ink bg-white;
-  }
-
-  .icon-button {
-    @apply min-w-9 px-2;
-  }
-
-  .app-shell {
-    @apply grid min-h-screen grid-cols-app bg-paper;
-  }
-
-  .sidebar {
-    @apply sticky top-0 flex h-screen flex-col border-r border-line bg-panel px-4 py-5;
-  }
-
-  .brand {
-    @apply mb-6 flex items-center gap-2 px-1 font-display text-h2 text-ink no-underline;
-  }
-
-  .sidebar nav {
-    @apply flex flex-col gap-1;
-  }
-
-  .sidebar nav a {
-    @apply flex items-center gap-2 border-l-2 border-transparent px-2 py-2 text-caption text-muted no-underline transition-colors hover:text-ink;
-  }
-
-  .sidebar nav a.active {
-    @apply border-ink bg-transparent text-ink;
-  }
-
-  .sidebar-footer {
-    @apply mt-auto border-t border-line pt-4;
-  }
-
-  .side-note {
-    @apply m-0 mb-4 text-meta text-muted;
-  }
-
-  .sidebar-control {
-    @apply mb-4 grid gap-2;
-  }
-
-  .sidebar-control > span,
-  .card-kicker,
-  .field span,
-  .record-card dt,
-  .summary-list dt,
-  .goal-summary dt,
-  .goal-stack span,
-  .checklist h3,
-  th {
-    @apply text-meta font-semibold uppercase text-muted;
-  }
-
-  .quiet-toggle {
-    @apply grid grid-cols-2 border border-line bg-white p-0.5;
-  }
-
-  .quiet-toggle button {
-    @apply min-h-8 justify-center border-0 bg-transparent px-2 py-1 text-meta text-muted shadow-none;
-  }
-
-  .quiet-toggle button.active {
-    @apply bg-ink text-white;
-  }
-
-  .sidebar-settings {
-    @apply block px-1 py-1.5 text-meta font-medium text-muted no-underline hover:text-ink;
-  }
-
-  main {
-    @apply min-w-0;
-  }
-
-  .page {
-    @apply mx-auto max-w-page px-gutter py-6;
-  }
-
-  .page-header {
-    @apply mb-6 max-w-readable;
-  }
-
-  .page-header h1 {
-    @apply m-0 font-display text-h1 text-ink;
-  }
-
-  .page-header p {
-    @apply mt-2 text-body text-muted;
-  }
-
-  .content-grid.two {
-    @apply grid grid-cols-2 gap-grid-gap;
-  }
-
-  .stats-grid {
-    @apply my-6 grid grid-cols-4 gap-grid-gap;
-  }
-
-  .panel,
-  .prompt-panel,
-  .task-card {
-    @apply border-t border-line bg-panel p-4 shadow-none;
-  }
-
-  .panel.compact,
-  .learning-section {
-    @apply p-3;
-  }
-
-  .panel h2,
-  .prompt-panel h3,
-  .task-card h3,
-  .section-heading,
-  .section-summary h2 {
-    @apply m-0 mb-3 font-display text-h2 text-ink;
-  }
-
-  .panel-title-row {
-    @apply mb-4 flex flex-wrap items-start justify-between gap-3;
-  }
-
-  .definition-list dt {
-    @apply mb-2 text-h2;
-  }
-
-  .definition-list dd {
-    @apply m-0 mb-3 text-body text-muted;
-  }
-
-  .stat {
-    @apply border-t border-line bg-white p-4;
-  }
-
-  .stat span {
-    @apply block text-meta uppercase text-muted;
-  }
-
-  .stat strong {
-    @apply mt-1 block font-display text-display text-ink;
-  }
-
-  .action-list,
-  .mini-list {
-    @apply m-0 list-none space-y-2 p-0 text-caption text-ink;
-  }
-
-  .action-list li,
-  .mini-list li {
-    @apply border-l-2 border-open-loop pl-3;
-  }
-
-  .cockpit-grid,
-  .dashboard-primary-row {
-    @apply mb-4 grid grid-cols-cockpit gap-grid-gap;
-  }
-
-  .cockpit-grid.two {
-    @apply grid-cols-2;
-  }
-
-  .cockpit-grid.three {
-    @apply grid-cols-3;
-  }
-
-  .cockpit-card {
-    @apply min-h-0;
-  }
-
-  .dashboard-state-grid {
-    @apply grid grid-cols-dashboard-state gap-grid-gap;
-  }
-
-  .dashboard-advanced-drawer,
-  .dashboard-prompt-dock {
-    @apply mt-4;
-  }
-
-  .dashboard-advanced-drawer > summary,
-  .advanced-details summary,
-  .add-learning-panel > summary,
-  .inline-details summary,
-  .ai-response-panel summary {
-    @apply cursor-pointer text-caption font-semibold text-muted hover:text-ink;
-  }
-
-  .dashboard-advanced-grid {
-    @apply mt-4 grid grid-cols-[1.4fr_0.6fr] gap-grid-gap;
-  }
-
-  .card-kicker {
-    @apply mb-3;
-  }
-
-  .goal-card h2,
-  .next-action-card h2,
-  .claim-card h2,
-  .reference-card h2,
-  .goal-summary h2 {
-    @apply mb-3 font-display text-h2 text-ink;
-  }
-
-  .goal-main {
-    @apply mb-4 text-body text-ink;
-  }
-
-  .goal-stack,
-  .goal-summary dl,
-  .summary-list {
-    @apply m-0 grid gap-2;
-  }
-
-  .goal-stack div,
-  .summary-list div,
-  .goal-summary dl div {
-    @apply border-t border-line bg-white py-2;
-  }
-
-  .goal-stack div,
-  .summary-list dd,
-  .goal-summary dd {
-    @apply text-caption text-ink;
-  }
-
-  .goal-summary p,
-  .claim-card p,
-  .reference-card p,
-  .trust-card p,
-  .test-card p,
-  .task-card p,
-  .task-card small,
-  .sub-card p {
-    @apply mt-0 text-caption text-muted;
-  }
-
-  .summary-list dd,
-  .goal-summary dd {
-    @apply m-0 mt-1;
-  }
-
-  .action-card {
-    @apply border-t border-line bg-white py-3;
-  }
-
-  .primary-action {
-    @apply border-ink;
-  }
-
-  .action-card h3 {
-    @apply mb-1 mt-2 font-display text-h2;
-  }
-
-  .action-card p {
-    @apply my-2 text-caption text-muted;
-  }
-
-  .action-card small {
-    @apply mb-3 block break-all text-meta text-muted;
-  }
-
-  .action-head,
-  .badge-row,
-  .button-row,
-  .prompt-actions,
-  .provider-run-row {
-    @apply flex flex-wrap gap-2;
-  }
-
-  .secondary-actions {
-    @apply mt-4 grid gap-2;
-  }
-
-  .dashboard-mini-item,
-  .learning-item,
-  .reference-row,
-  .list-card {
-    @apply flex items-start justify-between gap-3 border-t border-line bg-white py-3;
-  }
-
-  .dashboard-mini-item strong,
-  .learning-item strong,
-  .reference-row strong {
-    @apply block text-caption font-semibold text-ink;
-  }
-
-  .dashboard-mini-item p,
-  .learning-item p {
-    @apply mb-0 mt-2 line-clamp-3 text-meta text-muted;
-  }
-
-  .dashboard-mini-item button {
-    @apply shrink-0 px-2 py-1 text-meta;
-  }
-
-  .learning-item details,
-  .reference-row span,
-  .timeline-list small,
-  .table-hint,
-  .prompt-purpose,
-  .prompt-related,
-  .quiet-details {
-    @apply text-meta text-muted;
-  }
-
-  .loop-list,
-  .item-list,
-  .card-stack,
-  .reference-stack,
-  .learning-sections,
-  .claim-grid,
-  .review-list,
-  .goal-list {
-    @apply grid gap-3;
-  }
-
-  .loop-row {
-    @apply flex items-center justify-between border-t border-line bg-white py-2 text-caption;
-  }
-
-  .loop-row strong {
-    @apply font-display text-h2;
-  }
-
-  .inline-details,
-  .method-result,
-  .ai-response-panel {
-    @apply w-full border-t border-line bg-white py-3 text-caption;
-  }
-
-  .learning-item pre,
-  .debug-box,
-  .prompt-panel pre,
-  .markdown-body pre {
-    @apply max-h-[420px] overflow-auto whitespace-pre-wrap border border-line bg-white p-3 font-mono text-meta leading-5;
-  }
-
-  .section-summary {
-    @apply mb-3 flex cursor-pointer items-center justify-between gap-2;
-  }
-
-  .claim-grid,
-  .reference-grid,
-  .provider-grid {
-    @apply grid gap-grid-gap;
-  }
-
-  .provider-grid {
-    @apply grid-cols-2;
-  }
-
-  .reference-card code,
-  .provider-card code,
-  .sub-card code,
-  .markdown-body code {
-    @apply my-2 block break-all bg-white font-mono text-meta text-ink;
-  }
-
-  .timeline-list {
-    @apply m-0 grid list-none gap-2 p-0;
-  }
-
-  .timeline-list li {
-    @apply grid gap-1 border-t border-line bg-white py-3 text-caption text-ink;
-  }
-
-  .review-button {
-    @apply justify-start border-line bg-white text-left text-ink shadow-none;
-  }
-
-  .review-button.active {
-    @apply border-ink bg-ink text-white;
-  }
-
-  .review-markdown,
-  .reference-view,
-  .task-card {
-    @apply mt-4;
-  }
-
-  .review-hero {
-    @apply grid grid-cols-[1fr_0.9fr] gap-grid-gap;
-  }
-
-  .empty-panel {
-    @apply text-caption text-muted;
-  }
-
-  .advanced-details {
-    @apply mt-5;
-  }
-
-  .checklist,
-  .suggestion-list,
-  .sub-card {
-    @apply border-t border-line bg-white py-3;
-  }
-
-  .checklist ul {
-    @apply m-0 grid list-none gap-1 p-0 text-caption;
-  }
-
-  .checklist li {
-    @apply flex items-start gap-2;
-  }
-
-  .warn-icon {
-    @apply text-trust-gap;
-  }
-
-  .rich-ladder {
-    @apply text-meta font-medium;
-  }
-
-  .utility-strip {
-    @apply mb-5 flex items-center justify-between gap-3 border-t border-line pt-3;
-  }
-
-  .utility-strip p {
-    @apply m-0 text-caption text-muted;
-  }
-
-  .privacy-warning {
-    @apply my-3 border-l-2 border-open-loop bg-white pl-3 text-meta text-muted;
-  }
-
-  .provider-run-row {
-    @apply mb-2 items-center;
-  }
-
-  .provider-run-row.compact {
-    @apply mb-2;
-  }
-
-  .provider-run-row select,
-  .field input,
-  .field textarea,
-  .field select {
-    @apply border-0 border-b border-line bg-white px-0 py-2 text-caption text-ink outline-none focus:border-ink;
-  }
-
-  .field {
-    @apply flex flex-col gap-2 text-caption;
-  }
-
-  .field textarea {
-    @apply min-h-24;
-  }
-
-  .form-panel,
-  .inline-form {
-    @apply grid gap-3;
-  }
-
-  .inline-form {
-    @apply my-4;
-  }
-
-  .inline-form .field textarea {
-    @apply min-h-20;
-  }
-
-  .add-learning-panel {
-    @apply mb-5;
-  }
-
-  .segmented-row {
-    @apply my-4 flex flex-wrap gap-2;
-  }
-
-  .method-router-grid {
-    @apply my-4 grid grid-cols-2 gap-grid-gap;
-  }
-
-  .more-actions {
-    @apply text-caption;
-  }
-
-  .more-actions summary,
-  .quiet-details summary {
-    @apply cursor-pointer border-b border-line px-0 py-1 text-meta font-medium text-ink;
-  }
-
-  .more-actions[open] {
-    @apply grid gap-2 border-t border-line bg-white py-2;
-  }
-
-  .save-message {
-    @apply my-4 border-l-2 border-verified bg-white pl-3 text-caption text-verified;
-  }
-
-  .prompt-empty {
-    @apply flex items-center gap-2 border border-dashed border-line bg-white px-3 py-2 text-caption text-muted;
-  }
-
-  .mode-pill,
-  .badge {
-    @apply inline-flex whitespace-nowrap rounded-sm border px-2 py-0.5 text-meta font-medium;
-  }
-
-  .mode-pill.api,
-  .badge-good {
-    @apply border-verified/20 bg-verified/5 text-verified;
-  }
-
-  .mode-pill.prompt,
-  .badge-neutral {
-    @apply border-line bg-white text-muted;
-  }
-
-  .badge-danger {
-    @apply border-overdue/20 bg-overdue/5 text-overdue;
-  }
-
-  .badge-warn {
-    @apply border-trust-gap/20 bg-trust-gap/5 text-trust-gap;
-  }
-
-  .badge-info {
-    @apply border-open-loop/20 bg-open-loop/5 text-open-loop;
-  }
-
-  .badge-strong {
-    @apply border-ink bg-ink text-white;
-  }
-
-  .context-preview {
-    @apply mb-3 grid grid-cols-2 gap-2 border-t border-line bg-white pt-3 text-meta;
-  }
-
-  .context-preview div {
-    @apply grid grid-cols-[110px_1fr] gap-2;
-  }
-
-  .context-preview dt {
-    @apply font-semibold text-muted;
-  }
-
-  .context-preview dd {
-    @apply m-0 break-all text-ink;
-  }
-
-  .text-link {
-    @apply text-caption font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink;
-  }
-
-  .markdown-body {
-    @apply max-w-readable text-body text-ink;
-  }
-
-  .markdown-body h1 {
-    @apply font-display text-h1;
-  }
-
-  .markdown-body h2 {
-    @apply mt-6 font-display text-h2;
-  }
-
-  .markdown-body table {
-    @apply my-4;
-  }
-
-  .reference-view {
-    @apply grid grid-cols-2 gap-grid-gap;
-  }
-
-  .pdf-embed {
-    @apply mt-4 h-72 w-full border border-line;
-  }
-
-  .ladder {
-    @apply mb-5 grid grid-cols-5 overflow-hidden border border-line bg-white text-center text-caption font-semibold;
-  }
-
-  .ladder span {
-    @apply border-r border-line px-3 py-2 last:border-r-0;
-  }
-
-  .record-card {
-    @apply grid gap-2;
-  }
-
-  .record-card div {
-    @apply border-t border-line bg-white py-2;
-  }
-
-  .record-card dd {
-    @apply m-0 mt-1 text-caption;
-  }
-
-  .table-wrap {
-    @apply overflow-x-auto;
-  }
-
-  table {
-    @apply w-full border-collapse text-left text-caption;
-  }
-
-  th {
-    @apply border-b border-line bg-white px-3 py-2;
-  }
-
-  td {
-    @apply max-w-[360px] border-b border-line px-3 py-2 align-top leading-5;
-  }
-
-  tr {
-    @apply hover:bg-line/20;
-  }
-
-  .selectable-row {
-    @apply cursor-pointer;
-  }
-
-  .selected-row {
-    @apply bg-line/20 outline outline-1 outline-ink;
-  }
+body {
+  margin: 0;
+  background: var(--paper);
 }
 
-@media (max-width: 900px) {
-  :root {
-    --layout-gutter: 0.875rem;
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.learn-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  background: var(--paper);
+}
+
+.teaching-rail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-right: 1px solid var(--line);
+  background: rgba(247, 247, 245, 0.88);
+  backdrop-filter: blur(12px);
+  z-index: 4;
+}
+
+.rail-button {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 58px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rail-button:hover,
+.rail-button.active {
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.chat-surface {
+  min-width: 0;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 58px;
+  display: grid;
+  grid-template-columns: auto minmax(180px, 360px) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+}
+
+.brand-mark,
+.project-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-mark {
+  font-weight: 700;
+}
+
+.project-select {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 9px;
+  background: var(--paper);
+}
+
+.project-select select {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  outline: 0;
+}
+
+.project-status {
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.project-status.active {
+  color: var(--accent-strong);
+}
+
+.icon-control {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.icon-control:hover {
+  border-color: var(--ink);
+}
+
+.icon-control.strong {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.message-list {
+  width: min(100%, 860px);
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 22px 24px;
+  overflow: auto;
+}
+
+.message-row {
+  display: grid;
+  gap: 7px;
+}
+
+.message-row.user {
+  justify-items: end;
+}
+
+.message-row.assistant {
+  justify-items: start;
+}
+
+.message-meta,
+.mode-line,
+.state-hint {
+  color: var(--subtle);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.message-bubble {
+  max-width: min(720px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.62;
+}
+
+.message-row.user .message-bubble {
+  border-color: #d8e5e2;
+  background: #eef8f6;
+}
+
+.message-bubble p {
+  margin: 0 0 0.75em;
+}
+
+.message-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.state-hint {
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+}
+
+.error-strip {
+  width: min(100% - 44px, 860px);
+  justify-self: center;
+  margin-bottom: 8px;
+  border: 1px solid #f3b8b1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--danger);
+  background: #fff7f5;
+  font-size: 13px;
+}
+
+.composer-shell {
+  position: sticky;
+  bottom: 0;
+  justify-self: center;
+  width: min(100%, 900px);
+  padding: 10px 22px 18px;
+  background: linear-gradient(to top, #ffffff 82%, rgba(255, 255, 255, 0));
+}
+
+.mode-line {
+  margin: 0 0 6px 8px;
+}
+
+.composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+}
+
+.composer textarea {
+  width: 100%;
+  min-height: 52px;
+  max-height: 170px;
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.composer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.right-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 10;
+  width: min(460px, 100vw);
+  height: 100vh;
+  transform: translateX(100%);
+  transition: transform 180ms ease;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.12);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.right-drawer.open {
+  transform: translateX(0);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.drawer-header div {
+  display: grid;
+  gap: 2px;
+}
+
+.drawer-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.drawer-tabs button {
+  min-height: 46px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.drawer-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+
+.drawer-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.drawer-section,
+.settings-grid,
+.state-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.inline-form input,
+.field-row select,
+.reference-box input,
+.reference-box textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.project-list {
+  display: grid;
+  gap: 8px;
+}
+
+.project-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.project-card.active {
+  border-color: var(--accent);
+}
+
+.project-card span {
+  display: grid;
+  gap: 3px;
+}
+
+.project-card small,
+.empty-state,
+.state-group p {
+  color: var(--muted);
+}
+
+.field-row {
+  display: grid;
+  gap: 6px;
+}
+
+.field-row span,
+.state-group h3,
+.reference-box h3 {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.state-group,
+.reference-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+}
+
+.state-group h3,
+.reference-box h3 {
+  margin: 0 0 8px;
+}
+
+.state-group ul,
+.reference-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.state-group li,
+.reference-list li {
+  margin: 5px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.reference-box {
+  display: grid;
+  gap: 9px;
+}
+
+.reference-box h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reference-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.reference-actions button,
+.file-button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.file-button input {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .learn-shell {
+    grid-template-columns: 1fr;
   }
 
-  .app-shell {
-    @apply block;
+  .teaching-rail {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 86px;
+    top: auto;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    justify-content: start;
+    overflow-x: auto;
+    border-right: 0;
+    border-top: 1px solid var(--line);
   }
 
-  .sidebar {
-    @apply static h-auto border-b border-r-0;
+  .rail-button {
+    min-width: 68px;
   }
 
-  .sidebar nav {
-    @apply grid grid-cols-2;
+  .top-bar {
+    grid-template-columns: 1fr auto auto;
   }
 
-  .content-grid.two,
-  .stats-grid,
-  .reference-view,
-  .cockpit-grid,
-  .cockpit-grid.two,
-  .cockpit-grid.three,
-  .dashboard-primary-row,
-  .dashboard-state-grid,
-  .dashboard-advanced-grid,
-  .method-router-grid,
-  .review-hero,
-  .context-preview,
-  .reference-grid,
-  .provider-grid {
-    @apply grid-cols-1;
+  .brand-mark {
+    display: none;
   }
 
-  .learning-item,
-  .reference-row,
-  .dashboard-mini-item,
-  .list-card {
-    @apply block;
+  .composer-shell {
+    padding-bottom: 96px;
+  }
+
+  .drawer-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

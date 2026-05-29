@@ -1,129 +1,58 @@
-# AI Learning OS
+# AI Learn OS
 
-`ai-learning-os` is a local-first AI-native learning state manager.
+AI Learn OS is a Web-first, API-first learning operating system with a ChatGPT-style learning interface.
 
-It stores learning state, not world knowledge.
-
-## What It Is
-
-The system helps a learner track:
-
-- goals and current learning depth;
-- dynamic A/B/C knowledge positioning;
-- learner-generated claims and epistemic status;
-- derivation trust;
-- test-mode/internalization evidence;
-- distinctions, misconceptions, temporal traces, references, reviews, and copyable prompts.
-
-Core loop:
+The learner chats in a minimal UI. Behind each turn the backend runs the learning loop:
 
 ```text
-Goal -> Position -> Claim -> Verify -> Derivation Trust -> Test -> Review
+Goal -> Position -> Action -> Thought -> Verify -> Mark -> Handle -> Next Round
 ```
 
-## What It Is Not
+The system stores learning state, not world knowledge. It tracks claims, distinctions, temporal traces, knowledge positions, derivation trust, review triggers, module runs, and reversible state updates.
 
-It is not a knowledge base, static knowledge graph, note summarizer, hosted web product, or AI tutor clone. It does not store encyclopedic AI notes by default.
+## Product Shape
 
-## Local-First Philosophy
-
-Records are transparent YAML, Markdown, and JSONL files. The local Web UI is a learning cockpit over the same files used by the CLI.
-
-Prompt-only mode is the default. It sends no data anywhere.
-
-Optional connected mode supports user-provided providers, but only after explicit user action and only with selected prompts or context packs.
-
-## Install
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"
-cd web && npm ci && npm run build
-```
+- Frontend: ChatGPT-style conversation, teaching action buttons, run-next button, project switcher, hidden settings/state drawer.
+- Backend: API Gateway, Orchestrator, Agent Layer, Data Layer, Model Gateway, State Writer.
+- Storage: SQLite for local tests/development, Postgres + pgvector for production deployments.
+- Model calls: fast / medium / strong tiers through an OpenAI-compatible gateway. Tests use `FakeModelGateway`.
 
 ## Quickstart
 
 ```bash
-learn init .
-learn goal create --title "Quantum mechanics" --main-goal "Build reliable perturbation theory intuition"
-learn position add density_matrix --position B_knowledge_positioning --tool-role core_tool --reason "Orient mixed-state problems"
-learn claim add "Perturbation theory can be seen as a low-order expansion of effective theory."
-learn derivation add nondegenerate_perturbation_theory --importance core_tool --result-to-trust "First-order energy correction"
-learn prompt verify-claim <claim_id>
-learn review weekly
-learn validate
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[dev]"
+docker compose up -d postgres redis
+.venv/bin/learn ui
+cd web && npm install && npm run dev
 ```
 
-## Web UI
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Vite proxies `/api` to the Python server on `127.0.0.1:8765`.
 
-```bash
-learn ui
-```
+The local fallback database is `data/ai_learn_os.sqlite3`. `data/`, `.env`, `config.yaml`, caches, and build outputs are ignored by Git.
 
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765).
+## Core API
 
-For frontend development:
+- `POST /api/chat`
+- `POST /api/run-next`
+- `GET/POST/PATCH /api/projects`
+- `GET/PATCH /api/projects/:id/settings`
+- `GET/PATCH /api/system-settings`
+- `GET /api/projects/:id/state`
+- `POST/GET /api/projects/:id/references`
+- `POST /api/state-updates/:id/revert`
 
-```bash
-learn ui --dev
-cd web && npm run dev
-```
-
-The Vite dev server proxies `/api` to the Python local server at `127.0.0.1:8765`.
-
-## AI Context Packs
-
-AI agents and providers should not read all local data by default.
-
-```bash
-learn index refresh
-learn context build --task verify_claim --id <claim_id>
-learn prompt verify-claim <claim_id> --with-context
-```
-
-Context packs are compact, task-specific Markdown files under `data/context_packs/`.
-
-## Optional BYO API Mode
-
-Copy the example config locally:
-
-```bash
-cp config.example.yaml config.yaml
-export OPENROUTER_API_KEY="..."
-learn provider list
-learn provider test openrouter
-learn ai run-prompt --provider openrouter --prompt-file prompt.md
-learn ai run-context --provider openrouter --context-pack data/context_packs/example.md
-```
-
-`config.yaml` and `.env` are ignored by Git. API keys should live in environment variables.
-
-AI outputs are saved under `data/ai_runs/` as review artifacts. They are not automatically applied to claims, derivations, positioning decisions, or tests.
-
-## Privacy Model
-
-- Prompt-only mode sends no data.
-- Connected mode sends only the selected prompt/context after explicit action.
-- No telemetry.
-- No cloud sync.
-- No authentication or remote database.
-- Private `data/` is ignored by default.
-
-See [PRIVACY.md](PRIVACY.md), [docs/privacy_model.md](docs/privacy_model.md), and [docs/ai_context_protocol.md](docs/ai_context_protocol.md).
-
-## Public Example
-
-See [examples/qm_for_topological_order](examples/qm_for_topological_order) for public-safe sample learning-state records.
+See [docs/api.md](docs/api.md).
 
 ## Developer Checks
 
 ```bash
-.venv/bin/python -m pytest -q
 .venv/bin/python -m compileall src
-.venv/bin/learn validate
-cd web && npm run typecheck && npm run build
+.venv/bin/python -m pytest -q
+cd web && npm run typecheck
+cd web && npm run build
 ```
 
-## Contributing
+## Legacy Code
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Keep the project local-first and learning-state focused.
+The old CLI/YAML learning-state tools remain as compatibility helpers, but they are no longer the primary product entry. The primary product is the Web/API ChatGPT-style AI Learn OS described in [docs/implementation_design_v0_1.md](docs/implementation_design_v0_1.md).
