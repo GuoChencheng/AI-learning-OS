@@ -7,6 +7,8 @@ from .contracts import (
     AnswerComposerOutput,
     ContextExtractorOutput,
     ContextPackBuilderOutput,
+    DerivationTrustUpdate,
+    KnowledgePositionUpdate,
     NewClaim,
     NewDistinction,
     NewReviewTrigger,
@@ -16,6 +18,7 @@ from .contracts import (
     StateJudgeOutput,
     StateWriterOutput,
 )
+from ailearn.context_ranking import rank_records
 
 
 def _topic_from_text(text: str) -> str:
@@ -59,16 +62,17 @@ class ProjectResolverAgent:
 
 
 class ContextExtractorAgent:
-    def run(self, project_id: str, repository: Any) -> ContextExtractorOutput:
+    def run(self, project_id: str, repository: Any, request: str = "") -> ContextExtractorOutput:
         state = repository.project_state(project_id)
+        pending_reviews = [item for item in state["review_triggers"] if item.get("status") == "pending"]
         return ContextExtractorOutput.model_validate(
             {
-                "relevant_goals": repository.list_goal_stacks(project_id, limit=1),
-                "relevant_references": repository.list_references(project_id, limit=5),
-                "relevant_claims": state["claims"][:5],
-                "relevant_distinctions": state["distinctions"][:5],
-                "recent_traces": state["temporal_traces"][:10],
-                "active_review_triggers": [item for item in state["review_triggers"] if item.get("status") == "pending"][:10],
+                "relevant_goals": rank_records(repository.list_goal_stacks(project_id, limit=20), request, "goal", 3),
+                "relevant_references": rank_records(repository.list_references(project_id, limit=20), request, "reference", 5),
+                "relevant_claims": rank_records(state["claims"], request, "claim", 5),
+                "relevant_distinctions": rank_records(state["distinctions"], request, "distinction", 5),
+                "recent_traces": rank_records(state["temporal_traces"], request, "temporal_trace", 10),
+                "active_review_triggers": rank_records(pending_reviews, request, "review_trigger", 10),
             }
         )
 
@@ -154,51 +158,262 @@ class AnswerComposerAgent:
 
 
 class StateWriterAgent:
-    def run(self, project_id: str, message: str, answer: AnswerComposerOutput, pack: ContextPackBuilderOutput, judge: StateJudgeOutput) -> StateWriterOutput:
+    def run(
+        self,
+        project_id: str,
+        message: str,
+        answer: AnswerComposerOutput,
+        pack: ContextPackBuilderOutput,
+        judge: StateJudgeOutput,
+        module_name: str = "concept_explainer",
+        source_message_id: str | None = None,
+    ) -> StateWriterOutput:
         scheduled = (datetime.now(UTC) + timedelta(days=2)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         topic = _topic_from_text(message)
+        source_metadata = {
+            "source_type": _source_type_for_message(message),
+            "source_message_id": source_message_id,
+            "evidence_text": _evidence_text(message),
+        }
+        should_claim = _should_write_claim(message)
+        should_distinguish = _has_boundary_confusion(message, pack, judge, module_name)
+        should_review = _should_write_review_trigger(message, judge, module_name, should_distinguish)
+        should_position = _should_write_knowledge_position(message, judge, module_name)
+        should_derivation = _should_write_derivation_trust(message, judge, module_name)
+
+        claims = []
+        if should_claim:
+            claims.append(
+                NewClaim(
+                    original_statement=message,
+                    normalized_statement=f"Learner-side question or claim about {topic}",
+                    related_concept=topic,
+                    epistemic_status="open_question" if _is_question(message) else "learning_strategy",
+                    confidence=0.45,
+                    correction=answer.answer[:500],
+                ).model_dump()
+            )
+
+        distinctions = []
+        if should_distinguish:
+            concept_a, concept_b = _split_boundary_concepts(message, topic)
+            distinctions.append(
+                NewDistinction(
+                    concept_a=concept_a,
+                    concept_b=concept_b,
+                    boundary="Keep the learner's stated boundary question explicit before marking the concept as understood.",
+                    common_confusion="Treating nearby concepts, common co-occurrence, or useful explanations as equivalence.",
+                    example="A critical point can motivate a CFT description without making every critical point automatically a CFT.",
+                    test_question="What condition or counterexample would make the equivalence fail?",
+                ).model_dump()
+            )
+
+        review_triggers = []
+        if should_review:
+            review_triggers.append(
+                NewReviewTrigger(
+                    target=topic,
+                    trigger_reason=_review_reason(module_name, should_distinguish, judge),
+                    review_type="derive" if module_name == "derivation_coach" else "distinguish" if should_distinguish else "explain",
+                    scheduled_time=scheduled,
+                    success_criteria="Learner can restate the point and its boundary without AI help.",
+                ).model_dump()
+            )
+
+        knowledge_positions = []
+        if should_position:
+            knowledge_positions.append(
+                KnowledgePositionUpdate(
+                    concept=topic,
+                    layer="no_ai_internalization",
+                    reason="No-AI or heavy learner-state evidence requires tracking internalization level.",
+                    target_level="A3",
+                    current_level="A1",
+                    review_needed=True,
+                ).model_dump()
+            )
+
+        derivation_updates = []
+        if should_derivation:
+            derivation_updates.append(
+                DerivationTrustUpdate(
+                    result_or_tool=topic,
+                    assumptions=["Learner is working on a derivation or derivation trust gap."],
+                    key_steps=["List assumptions.", "Reconstruct key steps.", "Mark steps that still require hints."],
+                    done_by_user=[],
+                    hinted_by_ai=["Initial derivation scaffold was provided by AI."],
+                    untrusted_steps=["No independent reconstruction has been recorded yet."],
+                    failure_conditions=["Learner cannot reproduce the derivation without prompts."],
+                    no_ai_reconstruction_status="not_started",
+                    next_rederive_time=scheduled,
+                ).model_dump()
+            )
+
+        user_updates = {
+            "claims": len(claims),
+            "distinctions": len(distinctions),
+            "temporal_traces": 1,
+            "review_triggers": len(review_triggers),
+            "knowledge_positions": len(knowledge_positions),
+            "derivation_trust_records": len(derivation_updates),
+        }
         return StateWriterOutput.model_validate(
             {
-                "new_claims": [
-                    NewClaim(
-                        original_statement=message,
-                        normalized_statement=f"Learning question about {topic}",
-                        related_concept=topic,
-                        epistemic_status="open_question" if "?" in message or "？" in message else "learning_strategy",
-                        confidence=0.45,
-                        correction=answer.answer[:500],
-                    ).model_dump()
-                ],
+                "new_claims": claims,
                 "updated_claims": [],
-                "new_distinctions": [
-                    NewDistinction(
-                        concept_a=topic,
-                        concept_b="nearby concept or hidden assumption",
-                        boundary="Track the assumption boundary explicitly before treating the idea as learned.",
-                        common_confusion="Treating a useful explanation as verified understanding.",
-                        example="A direct answer feels clear, but the learner cannot reconstruct it without AI.",
-                        test_question="What assumption would make this explanation fail?",
-                    ).model_dump()
-                ],
+                "new_distinctions": distinctions,
                 "new_temporal_trace": NewTemporalTrace(
                     event_type="chat",
                     user_question=message,
                     system_response_summary=answer.answer[:240],
-                    state_change_summary=f"Recorded {judge.record_intensity} learning-state update.",
+                    state_change_summary=f"Recorded temporal trace plus {sum(count for key, count in user_updates.items() if key != 'temporal_traces')} durable learner-state updates.",
                     next_step=answer.suggested_next_action,
                 ).model_dump(),
-                "knowledge_position_updates": [],
-                "derivation_trust_updates": [],
-                "review_triggers": [
-                    NewReviewTrigger(
-                        target=topic,
-                        trigger_reason="New chat turn created a claim/distinction that should be checked later.",
-                        review_type="distinguish",
-                        scheduled_time=scheduled,
-                        success_criteria="Learner can explain the boundary without AI.",
-                    ).model_dump()
-                ],
+                "knowledge_position_updates": knowledge_positions,
+                "derivation_trust_updates": derivation_updates,
+                "review_triggers": review_triggers,
                 "next_recommended_action": answer.suggested_next_action,
+                "source_metadata": source_metadata,
+                "user_originated_updates": user_updates,
+                "ai_only_observations": {
+                    "learning_state": judge.learning_state,
+                    "knowledge_layer": judge.knowledge_layer,
+                    "record_intensity": judge.record_intensity,
+                    "module": module_name,
+                },
+                "discarded_ephemeral_judgments": {
+                    "context_pack": "runtime_only",
+                    "state_judge_label": "not_persisted_as_learning_memory",
+                    "module_router_reason": "not_persisted_as_learning_memory",
+                },
             }
         )
 
+
+def _source_type_for_message(message: str) -> str:
+    if _is_question(message):
+        return "user_question"
+    if any(marker in message for marker in ("我认为", "我觉得", "I think", "i think", "其实", "不是", "修正")):
+        return "user_explicit"
+    return "user_explicit"
+
+
+def _evidence_text(message: str) -> str:
+    return " ".join(message.strip().split())[:240]
+
+
+def _is_question(message: str) -> bool:
+    lowered = message.lower()
+    return "?" in message or "？" in message or any(marker in message for marker in ("什么", "为什么", "吗", "是否", "是不是")) or lowered.startswith(("what", "why", "how", "is ", "are "))
+
+
+def _should_write_claim(message: str) -> bool:
+    if _is_low_content(message) or _is_operational(message):
+        return False
+    lowered = message.lower()
+    conceptual_markers = (
+        "what",
+        "why",
+        "how",
+        "explain",
+        "derive",
+        "hypothesis",
+        "i think",
+        "claim",
+    )
+    chinese_markers = ("什么", "为什么", "是否", "是不是", "一定", "我认为", "我觉得", "推导", "解释", "区别", "误区", "修正")
+    return _is_question(message) or any(marker in lowered for marker in conceptual_markers) or any(marker in message for marker in chinese_markers)
+
+
+def _has_boundary_confusion(message: str, pack: ContextPackBuilderOutput, judge: StateJudgeOutput, module_name: str) -> bool:
+    if _is_low_content(message) or _is_operational(message):
+        return False
+    lowered = message.lower()
+    boundary_markers = ("区别", "是不是", "是否等同", "一定是", "等同", "和", " vs ", "compare", "difference", "same as")
+    boundary_modules = {"example_comparison", "flawed_interpretation_critic", "review_point_runner", "no_ai_reconstruction_tester"}
+    return (
+        any(marker in message for marker in boundary_markers)
+        or any(marker in lowered for marker in ("compare", "difference", "same as", " vs "))
+        or bool(pack.known_confusions)
+        or module_name in boundary_modules
+        or "concept-boundary" in judge.risk_flags
+    )
+
+
+def _should_write_review_trigger(message: str, judge: StateJudgeOutput, module_name: str, distinction_created: bool) -> bool:
+    if _is_low_content(message) or _is_operational(message):
+        return False
+    if distinction_created:
+        return True
+    if module_name in {"review_point_runner", "no_ai_reconstruction_tester"}:
+        return True
+    if module_name == "derivation_coach":
+        return True
+    if judge.knowledge_layer == "no_ai_internalization" and judge.record_intensity in {"medium", "heavy"}:
+        return True
+    return judge.record_intensity in {"medium", "heavy"} and _is_question(message)
+
+
+def _should_write_knowledge_position(message: str, judge: StateJudgeOutput, module_name: str) -> bool:
+    if module_name == "no_ai_reconstruction_tester":
+        return True
+    if any(marker in message for marker in ("内化", "不用 AI", "无 AI", "是否必须记住", "能否外包")):
+        return True
+    return judge.knowledge_layer == "no_ai_internalization" and judge.record_intensity == "heavy"
+
+
+def _should_write_derivation_trust(message: str, judge: StateJudgeOutput, module_name: str) -> bool:
+    lowered = message.lower()
+    if module_name == "derivation_coach":
+        return True
+    if any(marker in message for marker in ("推导", "证明", "不信", "不放心")):
+        return True
+    if any(marker in lowered for marker in ("derive", "derivation", "prove", "trust")):
+        return True
+    return judge.record_intensity == "heavy" and judge.learning_state == "ready_for_derivation"
+
+
+def _review_reason(module_name: str, distinction_created: bool, judge: StateJudgeOutput) -> str:
+    if distinction_created:
+        return "User-originated boundary confusion should be checked later."
+    if module_name == "no_ai_reconstruction_tester":
+        return "No-AI reconstruction needs a follow-up verification point."
+    if module_name == "derivation_coach":
+        return "Derivation trust is not established until the learner reconstructs key steps."
+    if judge.learning_state == "needs_review":
+        return "A pending review condition was detected."
+    return "The turn left an open learner-side question."
+
+
+def _split_boundary_concepts(message: str, topic: str) -> tuple[str, str]:
+    for separator in ("和", "与", " vs ", " VS ", " versus "):
+        if separator in message:
+            left, right = message.split(separator, 1)
+            left = left.strip(" ，,。?？")
+            right = right.strip(" ，,。?？")
+            return (left[:80] or topic, right[:80] or "nearby concept")
+    return topic, "nearby concept or hidden assumption"
+
+
+def _is_low_content(message: str) -> bool:
+    normalized = message.strip().lower()
+    return normalized in {"", "hi", "hello", "hey", "thanks", "thank you", "ok", "okay", "你好", "谢谢", "好的", "嗯", "好"}
+
+
+def _is_operational(message: str) -> bool:
+    normalized = message.strip().lower()
+    operational_markers = (
+        "简洁一点",
+        "短一点",
+        "长一点",
+        "换中文",
+        "用英文",
+        "继续",
+        "重新回答",
+        "格式",
+        "settings",
+        "setting",
+        "ui",
+        "界面",
+    )
+    return any(marker in normalized for marker in operational_markers)

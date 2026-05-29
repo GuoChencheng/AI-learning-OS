@@ -100,12 +100,22 @@ def test_context_pack_and_state_writer_contracts_match_api_shape() -> None:
                 }
             ],
             "next_recommended_action": answer.suggested_next_action,
+            "source_metadata": {
+                "source_type": "user_question",
+                "source_message_id": "msg_test",
+                "evidence_text": pack.current_request,
+            },
+            "user_originated_updates": {"claims": 1, "distinctions": 1, "review_triggers": 1},
+            "ai_only_observations": {"learning_state": "confused"},
+            "discarded_ephemeral_judgments": {"context_pack": "runtime_only"},
         }
     )
 
     assert writer.new_claims[0].related_concept == "critical phenomena"
     assert writer.new_distinctions[0].concept_a == "scale invariance"
     assert writer.review_triggers[0].review_type == "distinguish"
+    assert writer.source_metadata.source_type == "user_question"
+    assert writer.discarded_ephemeral_judgments["context_pack"] == "runtime_only"
 
 
 def test_module_router_priority_user_button_project_setting_state_default() -> None:

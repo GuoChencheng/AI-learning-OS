@@ -14,6 +14,10 @@ The main product is not the old CLI-first YAML workflow. The old CLI can remain 
 - Every `/api/run-next` request must choose a next action from learning state, not random text generation.
 - Agent outputs must be structured Pydantic models.
 - State writes must be traceable in `state_update_logs` and reversible where practical.
+- AI judgments are computation, not memory: context extraction, state judgment, and routing are ephemeral unless explicitly debug-persisted.
+- Durable memory should store learner-originated evidence and state, not every AI intermediate judgment or generic explanation.
+- Context packs are runtime objects by default. Persist them only for debug/audit with `AI_LEARN_DEBUG_PERSIST_CONTEXT=1`.
+- State Writer must distill post-turn learner state and separate `user_originated_updates`, `ai_only_observations`, and `discarded_ephemeral_judgments`.
 - Tests must use `FakeModelGateway`; do not require real API keys.
 - Model routing must support `fast`, `medium`, and `strong` tiers for OpenAI-compatible providers.
 - Do not commit API keys, `.env`, `config.yaml`, real learner data, caches, build outputs, or local databases.

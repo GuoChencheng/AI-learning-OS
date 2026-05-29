@@ -293,7 +293,14 @@ class Repository:
 
     def apply_state_writer_output(self, project_id: str, message_id: str | None, output: dict[str, Any]) -> dict[str, Any]:
         now = now_iso()
-        created: dict[str, list[dict[str, Any]]] = {"claims": [], "distinctions": [], "temporal_traces": [], "review_triggers": []}
+        created: dict[str, list[dict[str, Any]]] = {
+            "claims": [],
+            "distinctions": [],
+            "temporal_traces": [],
+            "review_triggers": [],
+            "knowledge_positions": [],
+            "derivation_trust_records": [],
+        }
         for claim in output.get("new_claims", []):
             created["claims"].append(
                 self._insert(
@@ -320,9 +327,23 @@ class Repository:
         for trigger in output.get("review_triggers", []):
             created["review_triggers"].append(self.create_review_trigger(project_id, trigger))
         for position in output.get("knowledge_position_updates", []):
-            self._insert("knowledge_positions", {"id": new_id("kp"), "project_id": project_id, "updated_at": now, **position})
+            created["knowledge_positions"].append(
+                self._insert("knowledge_positions", {"id": new_id("kp"), "project_id": project_id, "updated_at": now, **position})
+            )
         for derivation in output.get("derivation_trust_updates", []):
-            self._insert("derivation_trust_records", {"id": new_id("der"), "project_id": project_id, "created_at": now, "updated_at": now, **derivation})
+            created["derivation_trust_records"].append(
+                self._insert("derivation_trust_records", {"id": new_id("der"), "project_id": project_id, "created_at": now, "updated_at": now, **derivation})
+            )
+        payload = {
+            "source_metadata": output.get(
+                "source_metadata",
+                {"source_type": "system_trace", "source_message_id": message_id, "evidence_text": ""},
+            ),
+            "created": created,
+            "user_originated_updates": output.get("user_originated_updates", {}),
+            "ai_only_observations": output.get("ai_only_observations", {}),
+            "discarded_ephemeral_judgments": output.get("discarded_ephemeral_judgments", {}),
+        }
         log = self._insert(
             "state_update_logs",
             {
@@ -330,7 +351,7 @@ class Repository:
                 "project_id": project_id,
                 "message_id": message_id,
                 "update_type": "state_writer",
-                "payload_json": json.dumps({"created": created}, ensure_ascii=False),
+                "payload_json": json.dumps(payload, ensure_ascii=False),
                 "status": "applied",
                 "created_at": now,
             },
@@ -348,4 +369,8 @@ class Repository:
             self._update("claims", claim["id"], {"status": "deprecated", "updated_at": now})
         for trigger in created.get("review_triggers", []):
             self._update("review_triggers", trigger["id"], {"status": "skipped"})
+        for position in created.get("knowledge_positions", []):
+            self._update("knowledge_positions", position["id"], {"review_needed": 0, "updated_at": now})
+        for derivation in created.get("derivation_trust_records", []):
+            self._update("derivation_trust_records", derivation["id"], {"no_ai_reconstruction_status": "reverted", "updated_at": now})
         return self._update("state_update_logs", update_id, {"status": "reverted"})
