@@ -21,6 +21,7 @@ import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import type {
   ButtonAction,
   ChatResponse,
+  LearningSummaryPayload,
   LearningStatePayload,
   MessageMetadata,
   Project,
@@ -63,6 +64,7 @@ function App() {
   const [projectSettings, setProjectSettings] = useState<ProjectSettings | null>(null);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
   const [learningState, setLearningState] = useState<LearningStatePayload | null>(null);
+  const [learningSummary, setLearningSummary] = useState<LearningSummaryPayload | null>(null);
   const [references, setReferences] = useState<ReferenceEntry[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -122,14 +124,16 @@ function App() {
   }
 
   async function refreshProjectSurfaces(projectId: string) {
-    const [settings, state, refs, units] = await Promise.all([
+    const [settings, state, summary, refs, units] = await Promise.all([
       api.projectSettings(projectId),
       api.state(projectId),
+      api.learningSummary(projectId),
       api.references(projectId),
       api.learningUnits(projectId)
     ]);
     setProjectSettings(settings);
     setLearningState({ ...state, learning_units: units.items });
+    setLearningSummary(summary);
     setReferences(refs.items);
   }
 
@@ -348,6 +352,7 @@ function App() {
         projectSettings={projectSettings}
         systemSettings={systemSettings}
         learningState={learningState}
+        learningSummary={learningSummary}
         references={references}
         newProjectName={newProjectName}
         referenceTitle={referenceTitle}
@@ -624,6 +629,7 @@ function RightDrawer(props: {
   projectSettings: ProjectSettings | null;
   systemSettings: SystemSettings | null;
   learningState: LearningStatePayload | null;
+  learningSummary: LearningSummaryPayload | null;
   references: ReferenceEntry[];
   newProjectName: string;
   referenceTitle: string;
@@ -758,6 +764,7 @@ function SystemSettingsTab({ settings, onPatch }: { settings: SystemSettings | n
 
 function LearningStateTab(props: {
   learningState: LearningStatePayload | null;
+  learningSummary: LearningSummaryPayload | null;
   references: ReferenceEntry[];
   referenceTitle: string;
   referenceText: string;
@@ -771,6 +778,7 @@ function LearningStateTab(props: {
   const repeatedConfusions = state.claims.filter((claim) => claim.status === "revised" || claim.epistemic_status === "wrong").slice(0, 4);
   return (
     <section className="state-panel">
+      {props.learningSummary && <LearningSummaryCard summary={props.learningSummary} />}
       <StateGroup title="当前 Goal" items={state.temporal_traces.slice(0, 1)} primary="next_step" secondary="created_at" fallback="No recent goal trace." />
       <StateGroup title="核心 Claim" items={state.claims.slice(0, 4)} primary="normalized_statement" secondary="epistemic_status" fallback="No claims yet." />
       <StateGroup title="关键 Distinction" items={state.distinctions.slice(0, 4)} primary="boundary" secondary="concept_a" fallback="No distinctions yet." />
@@ -798,6 +806,44 @@ function LearningStateTab(props: {
         </ul>
       </div>
     </section>
+  );
+}
+
+function LearningSummaryCard({ summary }: { summary: LearningSummaryPayload }) {
+  const blocker = summary.current_blocker;
+  const next = summary.primary_next_action;
+  return (
+    <div className="learning-summary-card">
+      <div className="summary-row">
+        <span>当前阻滞</span>
+        <strong>{blocker.title}</strong>
+        <small>{blocker.reason}</small>
+        {blocker.evidence && <em>{blocker.evidence}</em>}
+      </div>
+      <div className="summary-row next-action">
+        <span>下一步</span>
+        <strong>{next.label}</strong>
+        <small>{next.reason}</small>
+        <em>{next.expected_user_action}</em>
+      </div>
+      <div className="summary-counts" aria-label="Learning state counts">
+        <span>{summary.counts.failed_reviews} failed review</span>
+        <span>{summary.counts.recurring_misconceptions} recurring misconception</span>
+        <span>{summary.counts.no_ai_below_A3} below A3</span>
+        <span>{summary.counts.derivation_trust_gaps} trust gap</span>
+      </div>
+      {summary.evidence.length > 0 && (
+        <div className="summary-evidence">
+          {summary.evidence.slice(0, 5).map((item) => (
+            <div key={`${item.type}-${item.id}`} className={shouldFlashEvidence(item) ? "summary-evidence-item memory-flash" : "summary-evidence-item"}>
+              <span>{item.type}</span>
+              <strong>{item.summary}</strong>
+              <small>{item.status}{item.why_it_matters ? ` · ${item.why_it_matters}` : ""}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -928,6 +974,15 @@ function formatStateMeta(key: string, value: unknown): string {
   const text = String(value);
   if (key.includes("created_at") || key.includes("updated_at") || key.includes("time")) return formatShortTime(text);
   return text;
+}
+
+function shouldFlashEvidence(item: { type: string; status: string }): boolean {
+  const status = item.status.toLowerCase();
+  return (
+    (item.type === "distinction" && ["clear", "partially_clear"].includes(status)) ||
+    (item.type === "derivation_trust" && ["trusted", "passed"].includes(status)) ||
+    (item.type === "knowledge_position" && ["a3", "a4"].includes(status))
+  );
 }
 
 function formatShortTime(value: string): string {

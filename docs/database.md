@@ -27,6 +27,7 @@ The Postgres schema is in [database.sql](database.sql). It includes:
 - `epistemic_marks`
 - `derivation_trust_records`
 - `review_triggers`
+- `misconception_records`
 - `module_runs`
 - `state_update_logs`
 - v0.4 research tables: `research_questions`, `hypotheses`, `evidence_records`, `competing_explanations`, `advisor_feedback`, `next_experiments`
@@ -36,6 +37,14 @@ The lightweight runtime schema lives in `src/ailearn/db/database.py` and mirrors
 ## Persistence Policy
 
 Durable tables store learner-side evidence and state, not every AI intermediate judgment. `messages`, `claims`, `distinctions`, `temporal_traces`, `knowledge_positions`, `derivation_trust_records`, `review_triggers`, `references`, and `state_update_logs` are the primary learning memory.
+
+Assessment fields extend the learning memory without turning it into a world-knowledge graph:
+
+- `knowledge_positions.last_assessed_at`, `last_assessment_result`, and `assessment_evidence` store no-AI A0-A4 evidence.
+- `distinctions.status`, `confusion_count`, `last_test_result`, and `next_distinction_test_at` support test/retest loops.
+- `derivation_trust_records.trust_status` and `last_step_assessment` summarize step-level derivation trust.
+- `review_triggers.status` now includes `failed`; `completed_at`, `result_evidence`, `failure_reason`, and `next_retry_time` preserve outcome evidence.
+- `misconception_records` stores recurring learner-side wrong patterns with stable keys, recurrence counts, severity, and next action.
 
 `context_packs` remains in the schema for debug/audit inspection, but chat turns do not persist context packs by default. Enable `AI_LEARN_DEBUG_PERSIST_CONTEXT=1` only when an audit trail of runtime context selection is needed.
 

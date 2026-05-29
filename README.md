@@ -219,6 +219,21 @@ Learning Unit 是工作记忆，不是最终学习记忆。最终学习状态仍
 
 ---
 
+## 学习评估闭环
+
+Alpha 版本开始评估学习证据，而不只是记录学习事件。
+
+- **No-AI Test**：根据用户无提示回答更新 A0-A4；A4 必须来自延迟回看成功，不能由一次新鲜回答直接获得。
+- **Derivation Trust**：逐步区分 `done_by_user`、`hinted_by_ai` 与 `untrusted_steps`。
+- **Distinction Test**：区分记录支持 `needs_test`、`partially_clear`、`clear`、`failed`、`needs_retest`。
+- **Claim Epistemic Status**：把用户 Claim 校准为 fact、inference、analogy、learning strategy、wrong 或 open question。
+- **Misconception Recurrence**：反复误区会形成 durable blocker，并进入 Inspector 与 Run Next 优先级。
+- **Review Trigger Loop**：回看点可以 completed / failed / skipped；失败或到期项会优先驱动下一轮。
+
+这些评估只在有用户回答、无 AI 尝试、推导尝试、概念边界测试或明确修正时写入 durable memory。AI 的中间判断仍然只是计算。
+
+---
+
 ## 技术栈
 
 AI Learn OS 的目标产品栈：
@@ -417,4 +432,3 @@ Understanding must be reconstructed.
 如果一个概念只是被总结过，它还没有进入学习者的头脑。
 
 AI Learn OS 的目标，是让 AI 的能力服务于人的判断，而不是吞没人的判断。
-

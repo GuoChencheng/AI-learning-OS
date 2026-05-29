@@ -71,3 +71,15 @@ State Writer is a post-turn learner-state distiller. It always records a tempora
 ## Learning Unit Close Distiller
 
 Learning-unit close distillation reuses `StateWriterOutput` as its durable-write contract. It gathers the unit, context snapshot, recent turns, method, topic, and close reason; then it writes a summary plus learner-side updates when evidence exists. Medium-tier model output is optional and deterministic fallback remains authoritative for tests.
+
+## Assessment Contracts
+
+Assessment outputs are Pydantic models and remain grounded in learner evidence:
+
+- `NoAIReconstructionAssessmentOutput`: `concept`, `previous_level`, `new_level`, `result`, `evidence_text`, `reason`, `next_action`, `should_schedule_review`.
+- `DerivationStepAssessmentOutput`: separates `done_by_user`, `hinted_by_ai`, `untrusted_steps`, reconstruction status, and rederive scheduling.
+- `DistinctionAssessmentOutput`: marks `needs_test`, `partially_clear`, `clear`, `failed`, or `needs_retest`, with confusion-count delta and next test prompt.
+- `ClaimEpistemicAssessmentOutput`: refines `epistemic_status`, durable claim `status`, confidence, caveat/correction, and evidence.
+- `MisconceptionRecurrenceOutput`: records stable misconception key, related records, recurrence delta, severity, evidence, and next action.
+
+The assessment layer may use the medium tier in configured mode, but deterministic fallback is the test path. Assessment judgments are not durable memory until repository update methods apply them with source evidence.

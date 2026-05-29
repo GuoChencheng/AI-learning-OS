@@ -27,4 +27,17 @@ The `/api/run-next` endpoint reads the current learning state and chooses one hi
 
 If a learning unit is active, `/api/run-next` first decides whether to continue it, refresh its context, close it, jump to a higher-priority global blocker, or create a new unit. Closing a unit runs distillation before durable state is updated.
 
+## Learning Assessment Loop
+
+Alpha adds assessment on top of state writing. The system now evaluates whether the learner has demonstrated understanding, distinction, derivation trust, or no-AI reconstruction:
+
+- No-AI Test updates A0-A4 from user answers; A4 requires delayed review evidence.
+- Derivation Trust separates user-derived steps, AI-hinted steps, and untrusted steps.
+- Distinction records support test, failed, partially clear, clear, and retest states.
+- Claim status is calibrated as strict fact, inference, analogy, learning strategy, wrong, or open question.
+- Recurring misconceptions are tracked as durable learner blockers.
+- Review Triggers can be completed, failed, or skipped; failed and pending due items drive Run Next priority.
+
+Assessment writes are grounded in user-side evidence and logged in `state_update_logs`. AI-only judgments remain computation, not durable memory.
+
 The UI keeps complexity out of the main screen. The right drawer exposes projects, project settings, system settings, and learning state.

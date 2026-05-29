@@ -23,6 +23,11 @@ LearningState = Literal["confused", "unstable", "progressing", "over_dependent",
 KnowledgeLayer = Literal["no_ai_internalization", "positioning", "index"]
 RecordIntensity = Literal["light", "medium", "heavy"]
 InteractionMode = Literal["direct_response", "guided_question", "test_first"]
+AssessmentLevel = Literal["A0", "A1", "A2", "A3", "A4"]
+AssessmentResult = Literal["passed", "partial", "failed", "skipped"]
+ReviewTriggerStatus = Literal["pending", "completed", "failed", "skipped"]
+DistinctionStatus = Literal["needs_test", "partially_clear", "clear", "failed", "needs_retest"]
+ClaimStatus = Literal["active", "revised", "deprecated", "verified", "misleading", "wrong", "open_question"]
 EpistemicStatus = Literal[
     "strict_fact",
     "derived_result",
@@ -182,3 +187,60 @@ class StateWriterOutput(ContractModel):
     user_originated_updates: dict[str, Any] = Field(default_factory=dict)
     ai_only_observations: dict[str, Any] = Field(default_factory=dict)
     discarded_ephemeral_judgments: dict[str, Any] = Field(default_factory=dict)
+
+
+class NoAIReconstructionAssessmentOutput(ContractModel):
+    concept: str
+    previous_level: AssessmentLevel
+    new_level: AssessmentLevel
+    result: Literal["passed", "partial", "failed"]
+    evidence_text: str
+    reason: str
+    next_action: str
+    should_schedule_review: bool
+
+
+class DerivationStepAssessmentOutput(ContractModel):
+    result_or_tool: str
+    done_by_user: list[str]
+    hinted_by_ai: list[str]
+    untrusted_steps: list[str]
+    no_ai_reconstruction_status: str
+    reason: str
+    next_action: str
+    should_schedule_rederive: bool
+
+
+class DistinctionAssessmentOutput(ContractModel):
+    concept_a: str
+    concept_b: str
+    status: DistinctionStatus
+    confusion_count_delta: int
+    evidence_text: str
+    reason: str
+    next_test_question: str | None = None
+    should_schedule_retest: bool
+
+
+class ClaimEpistemicAssessmentOutput(ContractModel):
+    claim_id: str | None = None
+    original_statement: str
+    epistemic_status: EpistemicStatus
+    status: ClaimStatus
+    confidence: float = Field(ge=0, le=1)
+    strict_part: str | None = None
+    caveat: str | None = None
+    correction: str | None = None
+    evidence_text: str
+    reason: str
+
+
+class MisconceptionRecurrenceOutput(ContractModel):
+    misconception_key: str
+    statement: str
+    related_claim_ids: list[str]
+    related_distinction_ids: list[str]
+    recurrence_count_delta: int
+    severity: Literal["low", "medium", "high"]
+    evidence_text: str
+    next_action: str

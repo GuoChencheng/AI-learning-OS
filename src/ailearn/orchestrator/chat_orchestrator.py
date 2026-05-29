@@ -4,6 +4,11 @@ import os
 from time import perf_counter
 from typing import Any
 
+from ailearn.assessment.claim import ClaimEpistemicEvaluator
+from ailearn.assessment.derivation import DerivationTrustEvaluator
+from ailearn.assessment.distinction import DistinctionTestEvaluator
+from ailearn.assessment.misconception import MisconceptionTracker, misconception_key
+from ailearn.assessment.no_ai import NoAITestEvaluator
 from ailearn.agents.contracts import ContextExtractorOutput
 from ailearn.agents.model_backed import ModelBackedAnswerComposerAgent, ModelBackedStateWriterAgent
 from ailearn.agents.deterministic import (
@@ -157,7 +162,18 @@ class ChatOrchestrator:
             active_unit=unit,
         )
         state_updates = StateWriterService(self.repository).apply(project_id, user_message["id"], state_writer)
+        assessment_updates = self._run_turn_assessments(
+            project_id,
+            message,
+            routing.module,
+            pack.model_dump(mode="json"),
+            state_updates,
+            unit,
+            user_message["id"],
+        )
         trace["steps"].append(_step("state_writer", state_writer))
+        if assessment_updates:
+            trace["assessment"] = assessment_updates
         trace["message_ids"] = {"user": user_message["id"], "assistant": assistant_message["id"]}
         trace["debug"] = {"context_pack_persisted": context_pack_persisted}
         if unit and unit_decision.action == "no_unit":
@@ -196,11 +212,90 @@ class ChatOrchestrator:
                 "review_triggers": state_updates["review_triggers"],
                 "knowledge_positions": state_updates["knowledge_positions"],
                 "derivation_trust_records": state_updates["derivation_trust_records"],
+                "assessments": assessment_updates,
                 "log_id": state_updates["log_id"],
             },
             "active_learning_unit": active_unit,
             "model_path": answer_composer.last_model_path,
         }
+
+    def _run_turn_assessments(
+        self,
+        project_id: str,
+        message: str,
+        module_name: str,
+        context_pack: dict[str, Any],
+        state_updates: dict[str, Any],
+        active_unit: dict[str, Any] | None,
+        source_message_id: str,
+    ) -> dict[str, Any]:
+        assessments: dict[str, Any] = {}
+
+        claim_assessments: list[dict[str, Any]] = []
+        for claim in state_updates.get("claims", []):
+            result = ClaimEpistemicEvaluator().evaluate(project_id, claim, message, context_pack, self.model_gateway)
+            if result.claim_id:
+                self.repository.update_claim_epistemic_status(result.claim_id, result.model_dump(mode="json"))
+            claim_assessments.append(result.model_dump(mode="json"))
+            if result.status in {"wrong", "misleading"} or _contains_misconception_pattern(message):
+                misconception = MisconceptionTracker().record_or_update(
+                    project_id,
+                    message,
+                    [result.claim_id] if result.claim_id else [],
+                    [],
+                    result.evidence_text,
+                    self.repository,
+                )
+                assessments["misconception"] = misconception
+        if claim_assessments:
+            assessments["claim_epistemic"] = claim_assessments
+
+        if _contains_misconception_pattern(message) and "misconception" not in assessments:
+            assessments["misconception"] = MisconceptionTracker().record_or_update(
+                project_id,
+                message,
+                [claim["id"] for claim in state_updates.get("claims", []) if claim.get("id")],
+                [item["id"] for item in state_updates.get("distinctions", []) if item.get("id")],
+                message,
+                self.repository,
+            )
+
+        if module_name == "no_ai_reconstruction_tester" or (active_unit and active_unit.get("method") == "no_ai_reconstruction_tester"):
+            concept = _assessment_topic(active_unit, message)
+            current = _latest_knowledge_position(self.repository.project_state(project_id).get("knowledge_positions", []), concept)
+            result = NoAITestEvaluator().evaluate(project_id, concept, message, current or {"current_level": "A0"}, context_pack, self.model_gateway)
+            updated = self.repository.update_knowledge_position_assessment(
+                project_id,
+                result.concept,
+                result.previous_level,
+                result.new_level,
+                result.result,
+                result.evidence_text,
+                result.reason,
+            )
+            self.repository.log_assessment_update(
+                project_id,
+                source_message_id,
+                "no_ai_assessment",
+                {"result": result.model_dump(mode="json"), "knowledge_position_id": updated["id"]},
+            )
+            assessments["no_ai"] = result.model_dump(mode="json")
+
+        derivations = list(state_updates.get("derivation_trust_records", []))
+        if module_name == "derivation_coach" or (active_unit and active_unit.get("method") == "derivation_coach"):
+            if not derivations:
+                derivations = self.repository.project_state(project_id).get("derivation_trust_records", [])[:1]
+            if derivations:
+                result = DerivationTrustEvaluator().evaluate_step(project_id, derivations[0]["id"], message, self.model_gateway, self.repository)
+                assessments["derivation"] = result.model_dump(mode="json")
+
+        if module_name in {"example_comparison", "flawed_interpretation_critic", "review_point_runner"} and not _is_question(message):
+            distinctions = list(state_updates.get("distinctions", [])) or self.repository.project_state(project_id).get("distinctions", [])[:1]
+            if distinctions:
+                result = DistinctionTestEvaluator().evaluate(project_id, distinctions[0]["id"], message, self.model_gateway, self.repository)
+                assessments["distinction"] = result.model_dump(mode="json")
+
+        return assessments
 
 
 def _step(agent: str, output: Any) -> dict[str, Any]:
@@ -230,3 +325,27 @@ def _extracted_from_unit(unit: dict[str, Any] | None) -> ContextExtractorOutput:
 
 def _summarize_unit_close(unit: dict[str, Any], message: str, answer: str) -> str:
     return f"{unit.get('method', 'learning')} unit on {unit.get('topic', 'current topic')} was closed after: {message[:120]}. Last response: {answer[:160]}"
+
+
+def _contains_misconception_pattern(message: str) -> bool:
+    key = misconception_key(message)
+    return not key.startswith("misc_")
+
+
+def _assessment_topic(unit: dict[str, Any] | None, message: str) -> str:
+    if unit and unit.get("topic"):
+        return str(unit["topic"])
+    cleaned = " ".join(message.strip().split())
+    return cleaned[:80].rstrip(" ?？。.") or "current no-AI target"
+
+
+def _latest_knowledge_position(positions: list[dict[str, Any]], concept: str) -> dict[str, Any] | None:
+    for position in positions:
+        if position.get("concept") == concept:
+            return position
+    return positions[0] if positions else None
+
+
+def _is_question(message: str) -> bool:
+    lowered = message.lower()
+    return "?" in message or "？" in message or any(marker in message for marker in ("什么", "为什么", "吗", "是否", "是不是")) or lowered.startswith(("what", "why", "how", "is ", "are "))

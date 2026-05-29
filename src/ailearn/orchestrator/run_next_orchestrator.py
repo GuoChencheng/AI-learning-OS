@@ -191,7 +191,10 @@ class RunNextOrchestrator:
         state = self.repository.project_state(project_id)
         goals = self.repository.list_goal_stacks(project_id, limit=1)
         now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        due = [item for item in state["review_triggers"] if item.get("status") == "pending" and item.get("scheduled_time", "") <= now]
+        due = [
+            item for item in state["review_triggers"]
+            if item.get("status") in {"pending", "failed"} and item.get("scheduled_time", "") <= now
+        ]
         if due:
             target = due[0]["target"]
             return {
