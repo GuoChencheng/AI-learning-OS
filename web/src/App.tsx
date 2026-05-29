@@ -27,6 +27,8 @@ import type {
   MessageMetadata,
   Project,
   ProjectSettings,
+  ProviderSettings,
+  ProviderSettingsUpdate,
   ReferenceEntry,
   RunNextDecisionState,
   RunNextResponse,
@@ -71,6 +73,7 @@ function App() {
   const [currentProjectId, setCurrentProjectId] = useState("");
   const [projectSettings, setProjectSettings] = useState<ProjectSettings | null>(null);
   const [systemSettings, setSystemSettings] = useState<SystemSettings | null>(null);
+  const [providerSettings, setProviderSettings] = useState<ProviderSettings | null>(null);
   const [learningState, setLearningState] = useState<LearningStatePayload | null>(null);
   const [learningSummary, setLearningSummary] = useState<LearningSummaryPayload | null>(null);
   const [references, setReferences] = useState<ReferenceEntry[]>([]);
@@ -127,7 +130,9 @@ function App() {
         setProjects([created]);
         setCurrentProjectId(created.id);
       }
-      setSystemSettings(await api.systemSettings());
+      const [system, providers] = await Promise.all([api.systemSettings(), api.providerSettings()]);
+      setSystemSettings(system);
+      setProviderSettings(providers);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load projects.");
     }
@@ -266,6 +271,10 @@ function App() {
     setSystemSettings(await api.updateSystemSettings(patch));
   }
 
+  async function updateProviderSettings(patch: ProviderSettingsUpdate) {
+    setProviderSettings(await api.updateProviderSettings(patch));
+  }
+
   async function revertMessageUpdate(messageId: string, logId: string) {
     if (!currentProject || busy) return;
     setBusy(true);
@@ -383,6 +392,7 @@ function App() {
         currentProject={currentProject}
         projectSettings={projectSettings}
         systemSettings={systemSettings}
+        providerSettings={providerSettings}
         learningState={learningState}
         learningSummary={learningSummary}
         writebackPulse={writebackPulse}
@@ -397,6 +407,7 @@ function App() {
         onProject={updateProject}
         onProjectSettings={updateProjectSettings}
         onSystemSettings={updateSystemSettings}
+        onProviderSettings={updateProviderSettings}
         onReferenceTitle={setReferenceTitle}
         onReferenceText={setReferenceText}
         onAddReference={addReference}
@@ -667,6 +678,7 @@ function RightDrawer(props: {
   currentProject: Project | null;
   projectSettings: ProjectSettings | null;
   systemSettings: SystemSettings | null;
+  providerSettings: ProviderSettings | null;
   learningState: LearningStatePayload | null;
   learningSummary: LearningSummaryPayload | null;
   writebackPulse: WritebackPulse | null;
@@ -681,6 +693,7 @@ function RightDrawer(props: {
   onProject: (patch: Partial<Project>) => void;
   onProjectSettings: (patch: Partial<ProjectSettings>) => void;
   onSystemSettings: (patch: Partial<SystemSettings>) => void;
+  onProviderSettings: (patch: ProviderSettingsUpdate) => Promise<void>;
   onReferenceTitle: (value: string) => void;
   onReferenceText: (value: string) => void;
   onAddReference: () => void;
@@ -708,7 +721,7 @@ function RightDrawer(props: {
         {props.tab === "project-settings" && (
           <ProjectSettingsTab project={props.currentProject} settings={props.projectSettings} onProject={props.onProject} onPatch={props.onProjectSettings} />
         )}
-        {props.tab === "system-settings" && <SystemSettingsTab settings={props.systemSettings} onPatch={props.onSystemSettings} />}
+        {props.tab === "system-settings" && <SystemSettingsTab settings={props.systemSettings} providerSettings={props.providerSettings} onPatch={props.onSystemSettings} onProviderPatch={props.onProviderSettings} />}
         {props.tab === "learning-state" && <LearningStateTab {...props} />}
       </div>
     </aside>
@@ -794,10 +807,21 @@ function ProjectSettingsTab({
   );
 }
 
-function SystemSettingsTab({ settings, onPatch }: { settings: SystemSettings | null; onPatch: (patch: Partial<SystemSettings>) => void }) {
+function SystemSettingsTab({
+  settings,
+  providerSettings,
+  onPatch,
+  onProviderPatch
+}: {
+  settings: SystemSettings | null;
+  providerSettings: ProviderSettings | null;
+  onPatch: (patch: Partial<SystemSettings>) => void;
+  onProviderPatch: (patch: ProviderSettingsUpdate) => Promise<void>;
+}) {
   if (!settings) return <EmptyState text="System settings are loading." />;
   return (
     <section className="settings-grid">
+      <ProviderSettingsCard settings={providerSettings} onPatch={onProviderPatch} />
       <SelectField label="Default Language" value={settings.default_language} options={["zh", "en", "bilingual"]} onChange={(value) => onPatch({ default_language: value })} />
       <SelectField label="Default Model Routing" value={settings.default_model_routing} options={["fast", "medium", "strong"]} onChange={(value) => onPatch({ default_model_routing: value })} />
       <SelectField label="Response Style" value={settings.global_response_style} options={["concise", "guided", "deep"]} onChange={(value) => onPatch({ global_response_style: value })} />
@@ -808,6 +832,96 @@ function SystemSettingsTab({ settings, onPatch }: { settings: SystemSettings | n
       <SelectField label="Notifications" value={settings.notification_preference} options={["none", "local", "daily_digest"]} onChange={(value) => onPatch({ notification_preference: value })} />
       <SelectField label="Theme" value={settings.theme} options={["light", "dark", "system"]} onChange={(value) => onPatch({ theme: value })} />
     </section>
+  );
+}
+
+function ProviderSettingsCard({
+  settings,
+  onPatch
+}: {
+  settings: ProviderSettings | null;
+  onPatch: (patch: ProviderSettingsUpdate) => Promise<void>;
+}) {
+  const provider = settings?.providers[0];
+  const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(provider?.base_url || "https://api.deepseek.com");
+  const [fastModel, setFastModel] = useState(provider?.fast_model || "deepseek-v4-flash");
+  const [mediumModel, setMediumModel] = useState(provider?.medium_model || "deepseek-v4-flash");
+  const [strongModel, setStrongModel] = useState(provider?.strong_model || "deepseek-v4-pro");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState("");
+  const [saveError, setSaveError] = useState("");
+
+  useEffect(() => {
+    if (!provider) return;
+    setBaseUrl(provider.base_url || "https://api.deepseek.com");
+    setFastModel(provider.fast_model || "deepseek-v4-flash");
+    setMediumModel(provider.medium_model || "deepseek-v4-flash");
+    setStrongModel(provider.strong_model || "deepseek-v4-pro");
+  }, [provider?.base_url, provider?.fast_model, provider?.medium_model, provider?.strong_model]);
+
+  async function save() {
+    setSaving(true);
+    setSaved("");
+    setSaveError("");
+    try {
+      await onPatch({
+        api_key: apiKey.trim() || undefined,
+        base_url: baseUrl.trim(),
+        fast_model: fastModel.trim(),
+        medium_model: mediumModel.trim(),
+        strong_model: strongModel.trim()
+      });
+      setApiKey("");
+      setSaved("Saved locally");
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Provider settings could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="provider-card">
+      <div className="provider-card-head">
+        <span><ShieldCheck size={14} /> AI Provider</span>
+        <strong>{provider?.api_key_present ? "Configured" : "Local key needed"}</strong>
+      </div>
+      <p>DeepSeek-compatible defaults are prefilled. The API key is saved only to local ignored storage and is never returned by the API.</p>
+      <label>
+        <span>Base URL</span>
+        <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
+      </label>
+      <label>
+        <span>API Key</span>
+        <input
+          value={apiKey}
+          type="password"
+          placeholder={provider?.api_key_present ? "Configured locally; paste a new key to replace" : "Paste local test key"}
+          onChange={(event) => setApiKey(event.target.value)}
+        />
+      </label>
+      <div className="provider-model-grid">
+        <label>
+          <span>Fast</span>
+          <input value={fastModel} onChange={(event) => setFastModel(event.target.value)} />
+        </label>
+        <label>
+          <span>Medium</span>
+          <input value={mediumModel} onChange={(event) => setMediumModel(event.target.value)} />
+        </label>
+        <label>
+          <span>Strong</span>
+          <input value={strongModel} onChange={(event) => setStrongModel(event.target.value)} />
+        </label>
+      </div>
+      <div className="provider-card-foot">
+        <small>{settings?.storage_file || ".env.local"} is ignored by git.</small>
+        <button onClick={save} disabled={saving}>{saving ? "Saving..." : "Save provider"}</button>
+      </div>
+      {saved && <em>{saved}</em>}
+      {saveError && <em className="provider-error">{saveError}</em>}
+    </div>
   );
 }
 

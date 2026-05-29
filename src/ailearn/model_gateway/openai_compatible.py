@@ -9,10 +9,10 @@ from .base import ModelGateway, ModelGatewayError, ModelTier
 
 
 class OpenAICompatibleGateway(ModelGateway):
-    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, base_url: str | None = None, models: dict[ModelTier, str] | None = None) -> None:
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = (base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
-        self.models = {
+        self.models = models or {
             ModelTier.FAST: os.getenv("AI_LEARN_FAST_MODEL", "gpt-4.1-mini"),
             ModelTier.MEDIUM: os.getenv("AI_LEARN_MEDIUM_MODEL", "gpt-4.1"),
             ModelTier.STRONG: os.getenv("AI_LEARN_STRONG_MODEL", "gpt-4.1"),
@@ -38,4 +38,3 @@ class OpenAICompatibleGateway(ModelGateway):
         except (urllib.error.URLError, TimeoutError) as exc:
             raise ModelGatewayError(str(exc)) from exc
         return data["choices"][0]["message"]["content"]
-

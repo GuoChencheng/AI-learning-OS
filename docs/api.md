@@ -66,6 +66,10 @@ Learning units hold short-lived method context. They are not permanent knowledge
 - `PATCH /api/projects/:id/settings`
 - `GET /api/system-settings`
 - `PATCH /api/system-settings`
+- `GET /api/settings/providers`
+- `PATCH /api/settings/providers`
+
+`PATCH /api/settings/providers` stores OpenAI-compatible provider settings in local ignored storage, normally `.env.local`. The request may include `api_key`, `base_url`, `fast_model`, `medium_model`, and `strong_model`. The response reports whether a key is present, but never returns the key value.
 
 ## Learning State
 

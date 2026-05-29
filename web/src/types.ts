@@ -81,6 +81,9 @@ export interface ProviderSummary {
   api_key_env?: string | null;
   api_key_present: boolean;
   default_model?: string | null;
+  fast_model?: string;
+  medium_model?: string;
+  strong_model?: string;
   is_default: boolean;
 }
 
@@ -93,7 +96,17 @@ export interface ProviderSettings {
   context_budget: string;
   ui_host: string;
   ui_port: number;
+  storage_path?: string;
+  storage_file?: string;
   providers: ProviderSummary[];
+}
+
+export interface ProviderSettingsUpdate {
+  api_key?: string;
+  base_url?: string;
+  fast_model?: string;
+  medium_model?: string;
+  strong_model?: string;
 }
 
 export interface AiRunResponse {

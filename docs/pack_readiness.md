@@ -30,10 +30,9 @@ Run local API and UI:
 
 ```bash
 .venv/bin/learn ui --dev
-cd web && npm run dev
 ```
 
-If you run backend and frontend separately, keep the backend on the port expected by the Vite proxy/API setup.
+`learn ui --dev` starts the API/static server and the Vite frontend dev server in one terminal. Open `http://127.0.0.1:8765` for the built UI or `http://127.0.0.1:5173` for Vite.
 
 ## API Key Path
 
@@ -41,11 +40,13 @@ The app runs without a real key by using `FakeModelGateway` / deterministic fall
 
 ```bash
 export OPENAI_API_KEY="..."
-export OPENAI_BASE_URL="https://api.openai.com/v1"
-export AI_LEARN_FAST_MODEL="gpt-4.1-mini"
-export AI_LEARN_MEDIUM_MODEL="gpt-4.1"
-export AI_LEARN_STRONG_MODEL="gpt-4.1"
+export OPENAI_BASE_URL="https://api.deepseek.com"
+export AI_LEARN_FAST_MODEL="deepseek-v4-flash"
+export AI_LEARN_MEDIUM_MODEL="deepseek-v4-flash"
+export AI_LEARN_STRONG_MODEL="deepseek-v4-pro"
 ```
+
+Users can also paste the provider key in `System Settings -> AI Provider`. The key is saved to local `.env.local`, which is ignored by git.
 
 Check what gateway will be used:
 

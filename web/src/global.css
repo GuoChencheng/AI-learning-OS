@@ -731,6 +731,96 @@ button:disabled {
   height: 16px;
 }
 
+.provider-card {
+  display: grid;
+  gap: 10px;
+  border: 0;
+  border-radius: 24px;
+  padding: 14px;
+  background: #111111;
+  color: #ffffff;
+}
+
+.provider-card-head,
+.provider-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.provider-card-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.provider-card-head strong {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.provider-card p,
+.provider-card small,
+.provider-card em {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.provider-card .provider-error {
+  color: rgba(255, 210, 210, 0.88);
+}
+
+.provider-card label {
+  display: grid;
+  gap: 5px;
+}
+
+.provider-card label span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.provider-card input {
+  width: 100%;
+  border: 0;
+  border-radius: 16px;
+  padding: 10px 11px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  outline: 0;
+}
+
+.provider-card input::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.provider-model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.provider-card button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 11px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .module-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -972,5 +1062,9 @@ button:disabled {
 
   .drawer-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .provider-model-grid {
+    grid-template-columns: 1fr;
   }
 }
